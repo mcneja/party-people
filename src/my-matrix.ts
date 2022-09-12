@@ -1,6 +1,7 @@
-export { vec2, mat4 };
+export { vec2, vec3, mat4 };
 
 type vec2 = [number, number];
+type vec3 = [number, number, number];
 type mat4 =
     [number, number, number, number,
      number, number, number, number,
@@ -94,6 +95,109 @@ namespace vec2 {
     export function zero(result: vec2) {
         result[0] = 0;
         result[1] = 0;
+    }
+}
+
+namespace vec3 {
+    export function create(): vec3 {
+        return [0, 0, 0];
+    }
+
+    export function clone(v: vec3): vec3 {
+        return [v[0], v[1], v[2]];
+    }
+
+    export function fromValues(x0: number, x1: number, x2: number): vec3 {
+        return [x0, x1, x2];
+    }
+
+    export function copy(result: vec3, v: vec3) {
+        result[0] = v[0];
+        result[1] = v[1];
+        result[2] = v[2];
+    }
+
+    export function set(result: vec3, x0: number, x1: number, x2: number) {
+        result[0] = x0;
+        result[1] = x1;
+        result[2] = x2;
+    }
+
+    export function add(result: vec3, a: vec3, b: vec3) {
+        result[0] = a[0] + b[0];
+        result[1] = a[1] + b[1];
+        result[2] = a[2] + b[2];
+    }
+
+    export function subtract(result: vec3, a: vec3, b: vec3) {
+        result[0] = a[0] - b[0];
+        result[1] = a[1] - b[1];
+        result[2] = a[2] - b[2];
+    }
+
+    export function multiply(result: vec3, a: vec3, b: vec3) {
+        result[0] = a[0] * b[0];
+        result[1] = a[1] * b[1];
+        result[2] = a[2] * b[2];
+    }
+
+    export function scale(result: vec3, a: vec3, scale: number) {
+        result[0] = a[0] * scale;
+        result[1] = a[1] * scale;
+        result[2] = a[2] * scale;
+    }
+
+    export function scaleAndAdd(result: vec3, a: vec3, b: vec3, scale: number) {
+        result[0] = a[0] + b[0] * scale;
+        result[1] = a[1] + b[1] * scale;
+        result[2] = a[2] + b[2] * scale;
+    }
+
+    export function distance(a: vec3, b: vec3): number {
+        const x = a[0] - b[0];
+        const y = a[1] - b[1];
+        const z = a[2] - b[2];
+        return Math.sqrt(x*x + y*y + z*z);
+    }
+
+    export function squaredDistance(a: vec3, b: vec3): number {
+        const x = a[0] - b[0];
+        const y = a[1] - b[1];
+        const z = a[2] - b[2];
+        return x * x + y * y + z * z;
+    }
+
+    export function length(a: vec3): number {
+        return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    }
+
+    export function squaredLength(a: vec3): number {
+        const x = a[0];
+        const y = a[1];
+        const z = a[2];
+        return x * x + y * y + z * z;
+    }
+
+    export function negate(result: vec3, a: vec3) {
+        result[0] = -a[0];
+        result[1] = -a[1];
+        result[2] = -a[2];
+    }
+
+    export function dot(a: vec3, b: vec3): number {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    export function lerp(result: vec3, a: vec3, b: vec3, t: number) {
+        result[0] = a[0] + t * (b[0] - a[0]);
+        result[1] = a[1] + t * (b[1] - a[1]);
+        result[2] = a[2] + t * (b[2] - a[2]);
+    }
+
+    export function zero(result: vec3) {
+        result[0] = 0;
+        result[1] = 0;
+        result[2] = 0;
     }
 }
 

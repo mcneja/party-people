@@ -1,4 +1,4 @@
-export { vec2, mat4 };
+export { vec2, vec3, mat4 };
 var vec2;
 (function (vec2) {
     function create() {
@@ -90,6 +90,110 @@ var vec2;
     }
     vec2.zero = zero;
 })(vec2 || (vec2 = {}));
+var vec3;
+(function (vec3) {
+    function create() {
+        return [0, 0, 0];
+    }
+    vec3.create = create;
+    function clone(v) {
+        return [v[0], v[1], v[2]];
+    }
+    vec3.clone = clone;
+    function fromValues(x0, x1, x2) {
+        return [x0, x1, x2];
+    }
+    vec3.fromValues = fromValues;
+    function copy(result, v) {
+        result[0] = v[0];
+        result[1] = v[1];
+        result[2] = v[2];
+    }
+    vec3.copy = copy;
+    function set(result, x0, x1, x2) {
+        result[0] = x0;
+        result[1] = x1;
+        result[2] = x2;
+    }
+    vec3.set = set;
+    function add(result, a, b) {
+        result[0] = a[0] + b[0];
+        result[1] = a[1] + b[1];
+        result[2] = a[2] + b[2];
+    }
+    vec3.add = add;
+    function subtract(result, a, b) {
+        result[0] = a[0] - b[0];
+        result[1] = a[1] - b[1];
+        result[2] = a[2] - b[2];
+    }
+    vec3.subtract = subtract;
+    function multiply(result, a, b) {
+        result[0] = a[0] * b[0];
+        result[1] = a[1] * b[1];
+        result[2] = a[2] * b[2];
+    }
+    vec3.multiply = multiply;
+    function scale(result, a, scale) {
+        result[0] = a[0] * scale;
+        result[1] = a[1] * scale;
+        result[2] = a[2] * scale;
+    }
+    vec3.scale = scale;
+    function scaleAndAdd(result, a, b, scale) {
+        result[0] = a[0] + b[0] * scale;
+        result[1] = a[1] + b[1] * scale;
+        result[2] = a[2] + b[2] * scale;
+    }
+    vec3.scaleAndAdd = scaleAndAdd;
+    function distance(a, b) {
+        const x = a[0] - b[0];
+        const y = a[1] - b[1];
+        const z = a[2] - b[2];
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+    vec3.distance = distance;
+    function squaredDistance(a, b) {
+        const x = a[0] - b[0];
+        const y = a[1] - b[1];
+        const z = a[2] - b[2];
+        return x * x + y * y + z * z;
+    }
+    vec3.squaredDistance = squaredDistance;
+    function length(a) {
+        return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    }
+    vec3.length = length;
+    function squaredLength(a) {
+        const x = a[0];
+        const y = a[1];
+        const z = a[2];
+        return x * x + y * y + z * z;
+    }
+    vec3.squaredLength = squaredLength;
+    function negate(result, a) {
+        result[0] = -a[0];
+        result[1] = -a[1];
+        result[2] = -a[2];
+    }
+    vec3.negate = negate;
+    function dot(a, b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+    vec3.dot = dot;
+    function lerp(result, a, b, t) {
+        result[0] = a[0] + t * (b[0] - a[0]);
+        result[1] = a[1] + t * (b[1] - a[1]);
+        result[2] = a[2] + t * (b[2] - a[2]);
+    }
+    vec3.lerp = lerp;
+    function zero(result) {
+        result[0] = 0;
+        result[1] = 0;
+        result[2] = 0;
+    }
+    vec3.zero = zero;
+})(vec3 || (vec3 = {}));
 var mat4;
 (function (mat4) {
     function create() {
