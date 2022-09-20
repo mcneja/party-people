@@ -175,10 +175,13 @@ type RenderDiscs = (matScreenFromWorld: mat4, discs: Array<GlyphDisc>) => void;
 
 type CreateColoredTrianglesRenderer = (vertexData: ArrayBuffer) => RenderColoredTriangles;
 
+type RenderLitSphere = (matScreenFromSphere: mat4, lightDirection: vec3, color: number) => void;
+
 type Renderer = {
     beginFrame: BeginFrame;
     renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
+    renderLitSphere: RenderLitSphere;
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer;
 }
 
@@ -189,6 +192,7 @@ type State = {
     showMap: boolean;
     mapZoom: number;
     mapZoomVelocity: number;
+    sphereAngle: number;
     player: Player;
     playerBullets: Array<Bullet>;
     turretBullets: Array<Bullet>;
@@ -677,12 +681,15 @@ function filterInPlace<T>(array: Array<T>, condition: (val: T, i: number, array:
 }
 
 function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement): Renderer {
+    gl.enable(gl.CULL_FACE);
+
     const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
         renderGlyphs: createGlyphRenderer(gl, glyphTexture),
+        renderLitSphere: createLitSphereRenderer(gl),
         createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
     };
 
@@ -729,6 +736,7 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         showMap: false,
         mapZoom: 1,
         mapZoomVelocity: 0,
+        sphereAngle: 0,
         player: createPlayer(level.playerStartPos),
         playerBullets: [],
         turretBullets: [],
@@ -749,6 +757,7 @@ function resetState(
     state.turretBullets = [];
     state.camera = createCamera(level.playerStartPos);
     state.level = level;
+    state.sphereAngle = 0;
 }
 
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
@@ -1147,6 +1156,240 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     }
 }
 
+function createLitSphereRenderer(gl: WebGL2RenderingContext): RenderLitSphere {
+    const vsSource = `#version 300 es
+        in vec3 vPosition;
+        in vec3 vNormal;
+
+        uniform mat4 uProjectionMatrix;
+
+        out highp vec3 fNormal;
+
+        void main() {
+            fNormal = vNormal;
+            gl_Position = uProjectionMatrix * vec4(vPosition.xyz, 1);
+        }
+    `;
+
+    const fsSource = `#version 300 es
+        in highp vec3 fNormal;
+
+        uniform highp vec3 uColorDiffuse;
+        uniform highp vec3 uColorAmbient;
+        uniform highp vec3 uLightDirection;
+        
+        out lowp vec4 fragColor;
+
+        void main() {
+            highp float diffuseFraction = max(0.0, dot(fNormal, uLightDirection));
+            highp vec3 color = uColorAmbient + uColorDiffuse * diffuseFraction;
+            fragColor = vec4(color.xyz, 1);
+        }
+    `;
+
+    const attribs = {
+        vPosition: 0,
+        vNormal: 1,
+    };
+
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
+
+    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const uColorDiffuseLoc = gl.getUniformLocation(program, 'uColorDiffuse');
+    const uColorAmbientLoc = gl.getUniformLocation(program, 'uColorAmbient');
+    const uLightDirectionLoc = gl.getUniformLocation(program, 'uLightDirection');
+
+    const [vertexData, indexData] = unitSphereMesh(3);
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    const indexBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(attribs.vPosition);
+    gl.enableVertexAttribArray(attribs.vNormal);
+    const bytesPerVertex = 24; // six 4-byte floats
+    gl.vertexAttribPointer(attribs.vPosition, 3, gl.FLOAT, false, bytesPerVertex, 0);
+    gl.vertexAttribPointer(attribs.vNormal, 3, gl.FLOAT, false, bytesPerVertex, 12);
+
+    gl.bindVertexArray(null);
+
+    const numIndices = indexData.length;
+
+    return (matScreenFromSphere, lightDirection, color) => {
+        const r = ((color >> 16) & 255) / 255;
+        const g = ((color >> 8) & 255) / 255;
+        const b = (color & 255) / 255;
+        const colorDiffuse = vec3.fromValues(r, g, b);
+        const colorAmbient = vec3.fromValues(r, g, b);
+        vec3.scale(colorDiffuse, colorDiffuse, 0.9);
+        vec3.scale(colorAmbient, colorAmbient, 0.1);
+        gl.useProgram(program);
+        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromSphere);
+        gl.uniform3fv(uColorDiffuseLoc, colorDiffuse);
+        gl.uniform3fv(uColorAmbientLoc, colorAmbient);
+        gl.uniform3fv(uLightDirectionLoc, lightDirection);
+        gl.bindVertexArray(vao);
+        gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+    };
+}
+
+function unitSphereMesh(numSubdivisions: number): [vertexData: Float32Array, indexData: Uint16Array] {
+    const t = (1 + Math.sqrt(5)) / 2;
+
+    let vertexData = [
+        -1,  t,  0,
+         1,  t,  0,
+        -1, -t,  0,
+         1, -t,  0,
+
+         0, -1,  t,
+         0,  1,  t,
+         0, -1, -t,
+         0,  1, -t,
+
+         t,  0, -1,
+         t,  0,  1,
+        -t,  0, -1,
+        -t,  0,  1,
+    ];
+
+    let indexData = [
+         0, 11,  5,
+         0,  5,  1,
+         0,  1,  7,
+         0,  7, 10,
+         0, 10, 11,
+         1,  5,  9,
+         5, 11,  4,
+        11, 10,  2,
+        10,  7,  6,
+         7,  1,  8,
+         3,  9,  4,
+         3,  4,  2,
+         3,  2,  6,
+         3,  6,  8,
+         3,  8,  9,
+         4,  9,  5,
+         2,  4, 11,
+         6,  2, 10,
+         8,  6,  7,
+         9,  8,  1,
+    ];
+
+    // Normalize the vertex positions
+    for (let i = 2; i < vertexData.length; i += 3) {
+        const x = vertexData[i - 2];
+        const y = vertexData[i - 1];
+        const z = vertexData[i];
+
+        const s = 1 / Math.sqrt(x*x + y*y + z*z);
+
+        vertexData[i - 2] = x * s;
+        vertexData[i - 1] = y * s;
+        vertexData[i] = z * s;
+    }
+
+    for (let i = 0; i < numSubdivisions; ++i) {
+        [vertexData, indexData] = subdivideUnitSphereMesh(vertexData, indexData);
+    }
+
+    // Convert to position+normal format
+
+    const numVertices = vertexData.length / 3;
+
+    const verts = new Float32Array(6 * numVertices);
+    const indices = new Uint16Array(indexData);
+
+    for (let i = 0; i < numVertices; ++i) {
+        const x = vertexData[3*i + 0];
+        const y = vertexData[3*i + 1];
+        const z = vertexData[3*i + 2];
+        verts[6*i + 0] = x;
+        verts[6*i + 1] = y;
+        verts[6*i + 2] = z;
+        verts[6*i + 3] = x;
+        verts[6*i + 4] = y;
+        verts[6*i + 5] = z;
+    }
+
+    return [verts, indices];
+}
+
+function subdivideUnitSphereMesh(vertexData: Array<number>, indexData: Array<number>): [Array<number>, Array<number>] {
+    const vertexIndex: Map<[number, number], number> = new Map();
+
+    const vertexDataNew: Array<number> = [];
+    const indexDataNew: Array<number> = [];
+
+    function ensureVertex(v0: number, v1: number): number {
+        let i = vertexIndex.get([v0, v1]);
+        if (i === undefined) {
+            i = vertexDataNew.length / 3;
+
+            if (v0 === v1) {
+                vertexIndex.set([v0, v0], i);
+
+                vertexDataNew.push(vertexData[3*v0 + 0]);
+                vertexDataNew.push(vertexData[3*v0 + 1]);
+                vertexDataNew.push(vertexData[3*v0 + 2]);
+            } else {
+                vertexIndex.set([v0, v1], i);
+                vertexIndex.set([v1, v0], i);
+
+                const x = vertexData[3*v0 + 0] + vertexData[3*v1 + 0];
+                const y = vertexData[3*v0 + 1] + vertexData[3*v1 + 1];
+                const z = vertexData[3*v0 + 2] + vertexData[3*v1 + 2];
+
+                const s = 1 / Math.sqrt(x*x + y*y + z*z);
+
+                vertexDataNew.push(x * s);
+                vertexDataNew.push(y * s);
+                vertexDataNew.push(z * s);
+            }
+        }
+        return i;
+    }
+
+    for (let i = 2; i < indexData.length; i += 3) {
+        const v0 = indexData[i - 2];
+        const v1 = indexData[i - 1];
+        const v2 = indexData[i];
+
+        const v00 = ensureVertex(v0, v0);
+        const v11 = ensureVertex(v1, v1);
+        const v22 = ensureVertex(v2, v2);
+        const v01 = ensureVertex(v0, v1);
+        const v12 = ensureVertex(v1, v2);
+        const v20 = ensureVertex(v2, v0);
+
+        indexDataNew.push(v00);
+        indexDataNew.push(v01);
+        indexDataNew.push(v20);
+
+        indexDataNew.push(v11);
+        indexDataNew.push(v12);
+        indexDataNew.push(v01);
+
+        indexDataNew.push(v22);
+        indexDataNew.push(v20);
+        indexDataNew.push(v12);
+
+        indexDataNew.push(v20);
+        indexDataNew.push(v01);
+        indexDataNew.push(v12);
+    }
+
+    return [vertexDataNew, indexDataNew];
+}
+
 function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColoredTrianglesRenderer {
     const vsSource = `#version 300 es
         in vec2 vPosition;
@@ -1215,6 +1458,8 @@ function slideToStop(body: Disc, dt: number) {
 }
 
 function updateState(state: State, dt: number) {
+
+    state.sphereAngle += dt * 0.5;
 
     // Player
 
@@ -1542,6 +1787,20 @@ function renderScene(renderer: Renderer, state: State) {
 
     renderPlayer(state, renderer, matScreenFromWorld);
 
+    const matWorldFromSphere = mat4.create();
+    mat4.identity(matWorldFromSphere);
+    mat4.rotateX(matWorldFromSphere, state.sphereAngle);
+    mat4.scale(matWorldFromSphere, vec3.fromValues(5, 5, 5));
+    mat4.translate(matWorldFromSphere, vec3.fromValues(state.level.solid.sizeX / 2, state.level.solid.sizeY / 2, 5));
+    const matSphereFromWorld = mat4.create();
+    mat4.transpose(matSphereFromWorld, matWorldFromSphere);
+    const lightDirectionWorld = vec3.fromValues(0, 0, -1);
+    const lightDirectionSphere = vec3.create();
+    vec3.transformMat4(lightDirectionSphere, lightDirectionWorld, matSphereFromWorld);
+    const matScreenFromSphere = mat4.create();
+    mat4.multiply(matScreenFromSphere, matScreenFromWorld, matWorldFromSphere);
+    renderer.renderLitSphere(matScreenFromSphere, lightDirectionSphere, 0xffffffff);
+
     // Status displays
 
     renderLootCounter(state, renderer, screenSize);
@@ -1589,7 +1848,16 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const cxZoom = lerp(cxMap, cxGame, state.mapZoom);
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
 
-    mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
+    const ySlope = 0.25; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
+    const czZoom = ryZoom / ySlope;
+    const tiltAngle = 0.5;//0.25;
+
+    mat4.identity(matScreenFromWorld);
+    mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
+//    mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxZoom, 1 / ryZoom, 1));
+    mat4.rotateX(matScreenFromWorld, tiltAngle);
+    mat4.translate(matScreenFromWorld, vec3.fromValues(0, 0, -czZoom));
+    mat4.frustum(matScreenFromWorld, -rxZoom / 2, rxZoom / 2, -ryZoom / 2, ryZoom / 2, czZoom / 2, czZoom * 2);
 }
 
 function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {

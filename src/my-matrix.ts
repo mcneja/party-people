@@ -199,6 +199,16 @@ namespace vec3 {
         result[1] = 0;
         result[2] = 0;
     }
+
+    export function transformMat4(result: vec3, a: vec3, m: mat4) {
+        const x = a[0];
+        const y = a[1];
+        const z = a[2];
+        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+        result[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+        result[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+        result[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+    }
 }
 
 namespace mat4 {
@@ -236,6 +246,41 @@ namespace mat4 {
         m[5] = 1;
         m[10] = 1;
         m[15] = 1;
+    }
+
+    export function transpose(result: mat4, m: mat4) {
+        const m00 = m[0];
+        const m10 = m[1];
+        const m20 = m[2];
+        const m30 = m[3];
+        const m01 = m[4];
+        const m11 = m[5];
+        const m21 = m[6];
+        const m31 = m[7];
+        const m02 = m[8];
+        const m12 = m[9];
+        const m22 = m[10];
+        const m32 = m[11];
+        const m03 = m[12];
+        const m13 = m[13];
+        const m23 = m[14];
+        const m33 = m[15];
+        result[0] = m00;
+        result[1] = m01;
+        result[2] = m02;
+        result[3] = m03;
+        result[4] = m10;
+        result[5] = m11;
+        result[6] = m12;
+        result[7] = m13;
+        result[8] = m20;
+        result[9] = m21;
+        result[10] = m22;
+        result[11] = m23;
+        result[12] = m30;
+        result[13] = m31;
+        result[14] = m32;
+        result[15] = m33;
     }
 
     export function translate(m: mat4, v: vec3) {
@@ -362,5 +407,20 @@ namespace mat4 {
         result[13] = (top + bottom) * bt;
         result[14] = (far + near) * nf;
         result[15] = 1;
+    }
+
+    export function multiply(result: mat4, a: mat4, b: mat4) {
+        const aCopy = [...a];
+        const bCopy = [...b];
+
+        for (let col = 0; col < 4; ++ col) {
+            for (let row = 0; row < 4; ++row) {
+                let x = 0;
+                for (let i = 0; i < 4; ++i) {
+                    x += aCopy[row + 4 * i] * bCopy[4 * col + i];
+                }
+                result[4 * col + row] = x;
+            }
+        }
     }
 }

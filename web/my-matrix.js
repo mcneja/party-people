@@ -193,6 +193,16 @@ var vec3;
         result[2] = 0;
     }
     vec3.zero = zero;
+    function transformMat4(result, a, m) {
+        const x = a[0];
+        const y = a[1];
+        const z = a[2];
+        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+        result[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+        result[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+        result[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+    }
+    vec3.transformMat4 = transformMat4;
 })(vec3 || (vec3 = {}));
 var mat4;
 (function (mat4) {
@@ -232,6 +242,41 @@ var mat4;
         m[15] = 1;
     }
     mat4.identity = identity;
+    function transpose(result, m) {
+        const m00 = m[0];
+        const m10 = m[1];
+        const m20 = m[2];
+        const m30 = m[3];
+        const m01 = m[4];
+        const m11 = m[5];
+        const m21 = m[6];
+        const m31 = m[7];
+        const m02 = m[8];
+        const m12 = m[9];
+        const m22 = m[10];
+        const m32 = m[11];
+        const m03 = m[12];
+        const m13 = m[13];
+        const m23 = m[14];
+        const m33 = m[15];
+        result[0] = m00;
+        result[1] = m01;
+        result[2] = m02;
+        result[3] = m03;
+        result[4] = m10;
+        result[5] = m11;
+        result[6] = m12;
+        result[7] = m13;
+        result[8] = m20;
+        result[9] = m21;
+        result[10] = m22;
+        result[11] = m23;
+        result[12] = m30;
+        result[13] = m31;
+        result[14] = m32;
+        result[15] = m33;
+    }
+    mat4.transpose = transpose;
     function translate(m, v) {
         // Pre-multiply m by translation matrix v
         m[0] += m[3] * v[0];
@@ -348,4 +393,18 @@ var mat4;
         result[15] = 1;
     }
     mat4.ortho = ortho;
+    function multiply(result, a, b) {
+        const aCopy = [...a];
+        const bCopy = [...b];
+        for (let col = 0; col < 4; ++col) {
+            for (let row = 0; row < 4; ++row) {
+                let x = 0;
+                for (let i = 0; i < 4; ++i) {
+                    x += aCopy[row + 4 * i] * bCopy[4 * col + i];
+                }
+                result[4 * col + row] = x;
+            }
+        }
+    }
+    mat4.multiply = multiply;
 })(mat4 || (mat4 = {}));
