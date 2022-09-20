@@ -1181,7 +1181,8 @@ function createLitSphereRenderer(gl: WebGL2RenderingContext): RenderLitSphere {
         out lowp vec4 fragColor;
 
         void main() {
-            highp float diffuseFraction = max(0.0, dot(fNormal, uLightDirection));
+            highp vec3 normal = normalize(fNormal);
+            highp float diffuseFraction = max(0.0, dot(normal, uLightDirection));
             highp vec3 color = uColorAmbient + uColorDiffuse * diffuseFraction;
             fragColor = vec4(color.xyz, 1);
         }

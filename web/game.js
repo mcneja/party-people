@@ -859,7 +859,8 @@ function createLitSphereRenderer(gl) {
         out lowp vec4 fragColor;
 
         void main() {
-            highp float diffuseFraction = max(0.0, dot(fNormal, uLightDirection));
+            highp vec3 normal = normalize(fNormal);
+            highp float diffuseFraction = max(0.0, dot(normal, uLightDirection));
             highp vec3 color = uColorAmbient + uColorDiffuse * diffuseFraction;
             fragColor = vec4(color.xyz, 1);
         }
@@ -873,7 +874,7 @@ function createLitSphereRenderer(gl) {
     const uColorDiffuseLoc = gl.getUniformLocation(program, 'uColorDiffuse');
     const uColorAmbientLoc = gl.getUniformLocation(program, 'uColorAmbient');
     const uLightDirectionLoc = gl.getUniformLocation(program, 'uLightDirection');
-    const [vertexData, indexData] = unitSphereMesh(3);
+    const [vertexData, indexData] = unitSphereMesh(2);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const vertexBuffer = gl.createBuffer();
