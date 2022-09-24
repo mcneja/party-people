@@ -17,6 +17,11 @@ var TerrainType;
     TerrainType[TerrainType["Hall"] = 2] = "Hall";
     TerrainType[TerrainType["Room"] = 3] = "Room";
 })(TerrainType || (TerrainType = {}));
+var GeomAttribs;
+(function (GeomAttribs) {
+    GeomAttribs[GeomAttribs["Position"] = 0] = "Position";
+    GeomAttribs[GeomAttribs["Normal"] = 1] = "Normal";
+})(GeomAttribs || (GeomAttribs = {}));
 const playerRadius = 0.5;
 const bulletRadius = 0.25;
 const bulletMinSpeed = 4;
@@ -458,8 +463,10 @@ function createRenderer(gl, fontImage) {
         beginFrame: createBeginFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
         renderGlyphs: createGlyphRenderer(gl, glyphTexture),
-        renderLitSphere: createLitSphereRenderer(gl),
+        renderGeom: createLitGeomRenderer(gl),
         createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
+        geomSphere: createGeomSphere(gl),
+        geomCylinder: createGeomCylinder(gl),
     };
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
@@ -835,7 +842,92 @@ function updateAndRender(now, renderer, state) {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
 }
-function createLitSphereRenderer(gl) {
+function compileGeom(gl, geom) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, geom.vertexData, gl.STATIC_DRAW);
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indexData, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(GeomAttribs.Position);
+    gl.enableVertexAttribArray(GeomAttribs.Normal);
+    const bytesPerVertex = 24; // six 4-byte floats
+    gl.vertexAttribPointer(GeomAttribs.Position, 3, gl.FLOAT, false, bytesPerVertex, 0);
+    gl.vertexAttribPointer(GeomAttribs.Normal, 3, gl.FLOAT, false, bytesPerVertex, 12);
+    gl.bindVertexArray(null);
+    const numIndices = geom.indexData.length;
+    return { vao: vao, numIndices: numIndices };
+}
+function createGeomSphere(gl) {
+    return compileGeom(gl, unitSphereMesh(3));
+}
+function createGeomCylinder(gl) {
+    const numSides = 32;
+    const numVerts = numSides * 4;
+    const numFloats = 6 * numVerts;
+    const numIndices = (2 * numSides - 2) * 6;
+    const geom = {
+        vertexData: new Float32Array(numFloats),
+        indexData: new Uint16Array(numIndices),
+    };
+    let i = 0;
+    for (let side = 0; side < numSides; ++side) {
+        const angle = (side / numSides) * Math.PI * 2;
+        const x = Math.cos(angle);
+        const y = Math.sin(angle);
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = -1;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = -1;
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = -1;
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = 1;
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = x;
+        geom.vertexData[i++] = y;
+        geom.vertexData[i++] = 1;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = 0;
+        geom.vertexData[i++] = 1;
+    }
+    i = 0;
+    for (let side = 0; side < numSides - 2; ++side) {
+        geom.indexData[i++] = 0;
+        geom.indexData[i++] = 4 * (side + 2);
+        geom.indexData[i++] = 4 * (side + 1);
+    }
+    for (let side = 0; side < numSides - 2; ++side) {
+        geom.indexData[i++] = 3;
+        geom.indexData[i++] = 4 * (side + 1) + 3;
+        geom.indexData[i++] = 4 * (side + 2) + 3;
+    }
+    for (let side = 0; side < numSides; ++side) {
+        const i0 = 4 * side + 1;
+        const i1 = 4 * side + 2;
+        const i2 = 4 * ((side + 1) % numSides) + 1;
+        const i3 = 4 * ((side + 1) % numSides) + 2;
+        geom.indexData[i++] = i0;
+        geom.indexData[i++] = i2;
+        geom.indexData[i++] = i1;
+        geom.indexData[i++] = i1;
+        geom.indexData[i++] = i2;
+        geom.indexData[i++] = i3;
+    }
+    return compileGeom(gl, geom);
+}
+function createLitGeomRenderer(gl) {
     const vsSource = `#version 300 es
         in vec3 vPosition;
         in vec3 vNormal;
@@ -874,37 +966,18 @@ function createLitSphereRenderer(gl) {
     const uColorDiffuseLoc = gl.getUniformLocation(program, 'uColorDiffuse');
     const uColorAmbientLoc = gl.getUniformLocation(program, 'uColorAmbient');
     const uLightDirectionLoc = gl.getUniformLocation(program, 'uLightDirection');
-    const [vertexData, indexData] = unitSphereMesh(2);
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    const vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-    const indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(attribs.vPosition);
-    gl.enableVertexAttribArray(attribs.vNormal);
-    const bytesPerVertex = 24; // six 4-byte floats
-    gl.vertexAttribPointer(attribs.vPosition, 3, gl.FLOAT, false, bytesPerVertex, 0);
-    gl.vertexAttribPointer(attribs.vNormal, 3, gl.FLOAT, false, bytesPerVertex, 12);
-    gl.bindVertexArray(null);
-    const numIndices = indexData.length;
-    return (matScreenFromSphere, lightDirection, color) => {
-        const r = ((color >> 16) & 255) / 255;
-        const g = ((color >> 8) & 255) / 255;
-        const b = (color & 255) / 255;
-        const colorDiffuse = vec3.fromValues(r, g, b);
-        const colorAmbient = vec3.fromValues(r, g, b);
-        vec3.scale(colorDiffuse, colorDiffuse, 0.9);
-        vec3.scale(colorAmbient, colorAmbient, 0.1);
+    return (compiledGeom, matScreenFromLocal, lighting, color) => {
+        const colorDiffuse = vec3.create();
+        vec3.multiply(colorDiffuse, lighting.lightColor, color);
+        const colorAmbient = vec3.create();
+        vec3.multiply(colorAmbient, lighting.ambientColor, color);
         gl.useProgram(program);
-        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromSphere);
+        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromLocal);
         gl.uniform3fv(uColorDiffuseLoc, colorDiffuse);
         gl.uniform3fv(uColorAmbientLoc, colorAmbient);
-        gl.uniform3fv(uLightDirectionLoc, lightDirection);
-        gl.bindVertexArray(vao);
-        gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
+        gl.uniform3fv(uLightDirectionLoc, lighting.lightDirection);
+        gl.bindVertexArray(compiledGeom.vao);
+        gl.drawElements(gl.TRIANGLES, compiledGeom.numIndices, gl.UNSIGNED_SHORT, 0);
         gl.bindVertexArray(null);
     };
 }
@@ -974,7 +1047,7 @@ function unitSphereMesh(numSubdivisions) {
         verts[6 * i + 4] = y;
         verts[6 * i + 5] = z;
     }
-    return [verts, indices];
+    return { vertexData: verts, indexData: indices };
 }
 function subdivideUnitSphereMesh(vertexData, indexData) {
     const vertexIndex = new Map();
@@ -1346,19 +1419,34 @@ function renderScene(renderer, state) {
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
     renderPlayer(state, renderer, matScreenFromWorld);
-    const matWorldFromSphere = mat4.create();
-    mat4.identity(matWorldFromSphere);
-    mat4.rotateX(matWorldFromSphere, state.sphereAngle);
-    mat4.scale(matWorldFromSphere, vec3.fromValues(5, 5, 5));
-    mat4.translate(matWorldFromSphere, vec3.fromValues(state.level.solid.sizeX / 2, state.level.solid.sizeY / 2, 5));
-    const matSphereFromWorld = mat4.create();
-    mat4.transpose(matSphereFromWorld, matWorldFromSphere);
-    const lightDirectionWorld = vec3.fromValues(0, 0, -1);
-    const lightDirectionSphere = vec3.create();
-    vec3.transformMat4(lightDirectionSphere, lightDirectionWorld, matSphereFromWorld);
-    const matScreenFromSphere = mat4.create();
-    mat4.multiply(matScreenFromSphere, matScreenFromWorld, matWorldFromSphere);
-    renderer.renderLitSphere(matScreenFromSphere, lightDirectionSphere, 0xffffffff);
+    const lightDirectionWorld = vec3.fromValues(2, -1, 3);
+    vec3.scale(lightDirectionWorld, lightDirectionWorld, 1 / vec3.length(lightDirectionWorld));
+    const matWorldFromPlayer = mat4.create();
+    mat4.identity(matWorldFromPlayer);
+    mat4.translate(matWorldFromPlayer, vec3.fromValues(state.player.position[0], state.player.position[1], 0));
+    const matScreenFromPlayer = mat4.create();
+    mat4.multiply(matScreenFromPlayer, matScreenFromWorld, matWorldFromPlayer);
+    const matPlayerFromBody = mat4.create();
+    mat4.identity(matPlayerFromBody);
+    mat4.scale(matPlayerFromBody, vec3.fromValues(0.5, 0.5, 0.66667));
+    mat4.translate(matPlayerFromBody, vec3.fromValues(0, 0, 0.66667));
+    const bodyColor = vec3.fromValues(0.5, 0.8, 1);
+    const lighting = {
+        lightDirection: lightDirectionWorld,
+        lightColor: vec3.fromValues(1, 0.9, 0.8),
+        ambientColor: vec3.fromValues(0.1, 0.125, 0.25),
+    };
+    const matScreenFromBody = mat4.create();
+    mat4.multiply(matScreenFromBody, matScreenFromPlayer, matPlayerFromBody);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromBody, lighting, bodyColor);
+    const matPlayerFromHead = mat4.create();
+    mat4.identity(matPlayerFromHead);
+    mat4.scale(matPlayerFromHead, vec3.fromValues(0.66667, 0.66667, 0.66667));
+    mat4.translate(matPlayerFromHead, vec3.fromValues(0, 0, 2));
+    const skinColor = vec3.fromValues(1, 0.8, 0.5);
+    const matScreenFromHead = mat4.create();
+    mat4.multiply(matScreenFromHead, matScreenFromPlayer, matPlayerFromHead);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromHead, lighting, skinColor);
     // Status displays
     renderLootCounter(state, renderer, screenSize);
     // Text
@@ -1386,7 +1474,7 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     const cyMap = state.level.solid.sizeY / 2;
     const cxGame = state.camera.position[0];
     const cyGame = state.camera.position[1];
-    const rGame = 18;
+    const rGame = 6;
     let rxGame, ryGame;
     if (screenSize[0] < screenSize[1]) {
         rxGame = rGame;
@@ -1400,15 +1488,15 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     const ryZoom = lerp(ryMap, ryGame, state.mapZoom);
     const cxZoom = lerp(cxMap, cxGame, state.mapZoom);
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
-    const ySlope = 0.25; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
+    const ySlope = 0.4; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
     const czZoom = ryZoom / ySlope;
-    const tiltAngle = 0.5; //0.25;
+    const tiltAngle = 1.3;
     mat4.identity(matScreenFromWorld);
     mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
     //    mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxZoom, 1 / ryZoom, 1));
     mat4.rotateX(matScreenFromWorld, tiltAngle);
     mat4.translate(matScreenFromWorld, vec3.fromValues(0, 0, -czZoom));
-    mat4.frustum(matScreenFromWorld, -rxZoom / 2, rxZoom / 2, -ryZoom / 2, ryZoom / 2, czZoom / 2, czZoom * 2);
+    mat4.frustum(matScreenFromWorld, -rxZoom / 2, rxZoom / 2, -ryZoom / 2, ryZoom / 2, czZoom / 2, czZoom * 4);
 }
 function renderLootCounter(state, renderer, screenSize) {
     const numLootItemsTotal = state.level.numLootItemsTotal;
