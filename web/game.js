@@ -458,8 +458,15 @@ function filterInPlace(array, condition) {
 }
 function createRenderer(gl, fontImage) {
     gl.enable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
     const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
+    function setDepthTestEnabled(enabled) {
+        if (enabled) {
+            gl.enable(gl.DEPTH_TEST);
+        }
+        else {
+            gl.disable(gl.DEPTH_TEST);
+        }
+    }
     const renderer = {
         beginFrame: createBeginFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
@@ -468,6 +475,7 @@ function createRenderer(gl, fontImage) {
         createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
         geomSphere: createGeomSphere(gl),
         geomCylinder: createGeomCylinder(gl),
+        setDepthTestEnabled: setDepthTestEnabled,
     };
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
@@ -527,7 +535,7 @@ function createBeginFrame(gl) {
         const screenX = gl.canvas.clientWidth;
         const screenY = gl.canvas.clientHeight;
         gl.viewport(0, 0, screenX, screenY);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         vec2.set(screenSize, screenX, screenY);
     };
 }
@@ -1409,22 +1417,100 @@ function clearLineOfSight(solid, pos0, pos1) {
 function renderPerson(renderer, lighting, matScreenFromWorld, position, heading) {
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
+    const eyeWhiteColor = vec3.fromValues(1, 1, 1);
+    const eyeCenterColor = vec3.fromValues(0, 0, 0);
     const xfm = new MatrixStack(matScreenFromWorld);
     xfm.translate(position);
     xfm.rotateZ(heading);
-    xfm.push();
-    xfm.translate(vec3.fromValues(0, 0, 0.66667));
-    xfm.scale(vec3.fromValues(0.5, 0.5, 0.66667));
+    xfm.scaleXYZ(0.66667, 0.66667, 0.66667); // scale so body radius is 0.5
+    // Body
+    xfm.push(); // body
+    xfm.translateZ(1);
+    xfm.scaleXYZ(0.75, 0.75, 1);
     renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
-    xfm.pop();
-    xfm.push();
-    xfm.translate(vec3.fromValues(0, 0, 2));
-    xfm.scale(vec3.fromValues(0.66667, 0.66667, 0.66667));
+    xfm.pop(); // body
+    // Head
+    const headPitch = 0.125;
+    const headHeading = 0;
+    xfm.push(); // head
+    xfm.translateZ(2); // up to neck
+    xfm.rotateZ(headHeading);
+    xfm.rotateY(headPitch);
+    xfm.translateZ(1); // up to center of head
     renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
-    xfm.translate(vec3.fromValues(1, 0, 0));
-    xfm.scale(vec3.fromValues(0.5, 0.5, 0.5));
+    xfm.push(); // nose
+    xfm.translateX(1);
+    xfm.scaleXYZ(0.25, 0.25, 0.25);
     renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
-    xfm.pop();
+    xfm.pop(); // nose
+    xfm.push(); // eyes
+    xfm.translateX(0.8);
+    xfm.translateZ(0.2);
+    xfm.push(); // left eye
+    xfm.translateY(0.3);
+    xfm.push(); // eyeball
+    xfm.scaleXYZ(0.25, 0.25, 0.25);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeWhiteColor);
+    xfm.pop(); // eyeball
+    xfm.translateX(0.06);
+    xfm.scaleXYZ(0.2, 0.2, 0.2);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeCenterColor);
+    xfm.pop(); // left eye
+    xfm.push(); // right eye
+    xfm.translateY(-0.3);
+    xfm.push(); // eyeball
+    xfm.scaleXYZ(0.25, 0.25, 0.25);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeWhiteColor);
+    xfm.pop(); // eyeball
+    xfm.translateX(0.06);
+    xfm.scaleXYZ(0.2, 0.2, 0.2);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeCenterColor);
+    xfm.pop(); // right eye
+    xfm.pop(); // eyes
+    xfm.pop(); // head
+    // Arms
+    xfm.push(); // arms
+    xfm.translateZ(2);
+    // Left arm
+    const armAngle = 0.25;
+    xfm.push(); // left arm
+    xfm.translateY(0.95);
+    xfm.rotateY(armAngle);
+    xfm.push(); // sleeve
+    xfm.translateZ(-0.5);
+    xfm.scaleXYZ(0.2, 0.2, 0.5);
+    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    xfm.pop(); // sleeve
+    xfm.push(); // shoulder
+    xfm.scaleXYZ(0.35, 0.35, 0.35);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, bodyColor);
+    xfm.pop(); // shoulder
+    xfm.push(); // hand
+    xfm.translateZ(-1.25);
+    xfm.scaleXYZ(0.25, 0.25, 0.25);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    xfm.pop(); // hand
+    xfm.pop(); // left arm
+    // Right arm
+    xfm.push(); // right arm
+    xfm.translateY(-0.95);
+    xfm.rotateY(-armAngle);
+    xfm.push(); // sleeve
+    xfm.translateZ(-0.5);
+    xfm.scaleXYZ(0.2, 0.2, 0.5);
+    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    xfm.pop(); // sleeve
+    xfm.push(); // shoulder
+    xfm.scaleXYZ(0.35, 0.35, 0.35);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, bodyColor);
+    xfm.pop(); // shoulder
+    xfm.push(); // hand
+    xfm.translateZ(-1.25);
+    xfm.scaleXYZ(0.25, 0.25, 0.25);
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    xfm.pop(); // hand
+    xfm.pop(); // right arm
+    xfm.pop(); // arms
 }
 function renderScene(renderer, state) {
     const screenSize = vec2.create();
@@ -1440,6 +1526,7 @@ function renderScene(renderer, state) {
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
     renderPlayer(state, renderer, matScreenFromWorld);
+    renderer.setDepthTestEnabled(true);
     const lightDirectionWorld = vec3.fromValues(2, -1, 3);
     vec3.scale(lightDirectionWorld, lightDirectionWorld, 1 / vec3.length(lightDirectionWorld));
     const lighting = {
@@ -1451,6 +1538,7 @@ function renderScene(renderer, state) {
     const playerHeading = Math.atan2(state.player.velocity[1], state.player.velocity[0]);
     renderPerson(renderer, lighting, matScreenFromWorld, playerPosition, playerHeading);
     // Status displays
+    renderer.setDepthTestEnabled(false);
     renderLootCounter(state, renderer, screenSize);
     // Text
     if (state.paused) {
@@ -1493,7 +1581,7 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
     const ySlope = 0.4; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
     const czZoom = ryZoom / ySlope;
-    const tiltAngle = 0.5; //1.3;
+    const tiltAngle = 1.0; //1.3;
     mat4.identity(matScreenFromWorld);
     mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
     //    mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxZoom, 1 / ryZoom, 1));

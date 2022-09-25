@@ -438,10 +438,60 @@ class MatrixStack {
             m[row + 8] *= s[2];
         }
     }
+    scaleXYZ(x, y, z) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 0] *= x;
+            m[row + 4] *= y;
+            m[row + 8] *= z;
+        }
+    }
+    scaleX(x) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 0] *= x;
+        }
+    }
+    scaleY(y) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 4] *= y;
+        }
+    }
+    scaleZ(z) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 8] *= z;
+        }
+    }
     translate(t) {
         const m = this.top();
         for (let row = 0; row < 4; ++row) {
             m[row + 12] += m[row + 0] * t[0] + m[row + 4] * t[1] + m[row + 8] * t[2];
+        }
+    }
+    translateXYZ(x, y, z) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 0] * x + m[row + 4] * y + m[row + 8] * z;
+        }
+    }
+    translateX(x) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 0] * x;
+        }
+    }
+    translateY(y) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 4] * y;
+        }
+    }
+    translateZ(z) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 8] * z;
         }
     }
     rotateX(angle) {

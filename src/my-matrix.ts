@@ -460,10 +460,68 @@ class MatrixStack {
         }
     }
 
+    scaleXYZ(x: number, y: number, z: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 0] *= x;
+            m[row + 4] *= y;
+            m[row + 8] *= z;
+        }
+    }
+
+    scaleX(x: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 0] *= x;
+        }
+    }
+
+    scaleY(y: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 4] *= y;
+        }
+    }
+
+    scaleZ(z: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 8] *= z;
+        }
+    }
+
     translate(t: vec3) {
         const m = this.top();
         for (let row = 0; row < 4; ++row) {
             m[row + 12] += m[row + 0] * t[0] + m[row + 4] * t[1] + m[row + 8] * t[2];
+        }
+    }
+
+    translateXYZ(x: number, y: number, z: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 0] * x + m[row + 4] * y + m[row + 8] * z;
+        }
+    }
+
+    translateX(x: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 0] * x;
+        }
+    }
+
+    translateY(y: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 4] * y;
+        }
+    }
+
+    translateZ(z: number) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 8] * z;
         }
     }
 
