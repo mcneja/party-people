@@ -100,7 +100,9 @@ type Player = {
     position: vec2;
     velocity: vec2;
     heading: number;
-    angularVelocity: number;
+    headingVelocity: number;
+    headHeading: number;
+    headHeadingVelocity: number;
     radius: number;
     armPhase: number;
 };
@@ -773,7 +775,9 @@ function createPlayer(posStart: vec2): Player {
         position: vec2.create(),
         velocity: vec2.create(),
         heading: 0,
-        angularVelocity: 0,
+        headingVelocity: 0,
+        headHeading: 0,
+        headHeadingVelocity: 0,
         radius: playerRadius,
         armPhase: 0,
     };
@@ -1617,6 +1621,8 @@ function updateState(state: State, dt: number) {
     state.player.armPhase += playerSpeed * armPhaseSpeed;
     state.player.armPhase -= Math.floor(state.player.armPhase);
 
+    // Update body heading and angular velocity
+
     const minReorientSpeed = 1.0;
     const headingTarget = (playerSpeed >= minReorientSpeed) ? Math.atan2(state.player.velocity[1], state.player.velocity[0]) : state.player.heading;
 
@@ -1627,12 +1633,12 @@ function updateState(state: State, dt: number) {
         headingError += 2 * Math.PI;
     }
 
-    const angularVelocityError = -state.player.angularVelocity;
+    const headingVelocityError = -state.player.headingVelocity;
     const headingSpringFreq = 10;
 
-    const headingAcceleration = headingSpringFreq * (headingSpringFreq * headingError + 2 * angularVelocityError);
-    const angularVelocityNext = state.player.angularVelocity + headingAcceleration * dt;
-    state.player.heading += (state.player.angularVelocity + angularVelocityNext) * (dt / 2);
+    const headingAcceleration = headingSpringFreq * (headingSpringFreq * headingError + 2 * headingVelocityError);
+    const headingVelocityNext = state.player.headingVelocity + headingAcceleration * dt;
+    state.player.heading += (state.player.headingVelocity + headingVelocityNext) * (dt / 2);
     while (state.player.heading < -Math.PI) {
         state.player.heading += 2 * Math.PI;
     }
@@ -1640,7 +1646,28 @@ function updateState(state: State, dt: number) {
         state.player.heading -= 2 * Math.PI;
     }
 
-    state.player.angularVelocity = angularVelocityNext;
+    state.player.headingVelocity = headingVelocityNext;
+
+    // Update head heading and angular velocity
+
+    const maxHeadHeading = 1.0;
+
+    let headHeadingError = headingTarget - (state.player.heading + state.player.headHeading);
+    if (headHeadingError > Math.PI) {
+        headHeadingError -= 2 * Math.PI;
+    } else if (headHeadingError < -Math.PI) {
+        headHeadingError += 2 * Math.PI;
+    }
+    headHeadingError = Math.max(-maxHeadHeading, Math.min(maxHeadHeading, headHeadingError));
+
+    const headHeadingVelocityError = -(state.player.headingVelocity + state.player.headHeadingVelocity);
+    const headHeadingSpringFreq = 30;
+
+    const headHeadingAcceleration = headHeadingSpringFreq * (headHeadingSpringFreq * headHeadingError + 2 * headHeadingVelocityError);
+    const headHeadingVelocityNext = state.player.headHeadingVelocity + headHeadingAcceleration * dt;
+    state.player.headHeading += (state.player.headHeadingVelocity + headHeadingVelocityNext) * (dt / 2);
+    state.player.headHeading = Math.max(-maxHeadHeading, Math.min(maxHeadHeading, state.player.headHeading));
+    state.player.headHeadingVelocity = headHeadingVelocityNext;
 
     // Other
 
@@ -2111,7 +2138,7 @@ function renderScene(renderer: Renderer, state: State) {
     const personRenderState = {
         position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
         heading: state.player.heading,
-        headHeading: 0,
+        headHeading: state.player.headHeading,
         headPitch: 0.125,
         eyeLHeading: 0,
         eyeRHeading: 0,
