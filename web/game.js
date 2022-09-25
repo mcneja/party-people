@@ -495,6 +495,8 @@ function createPlayer(posStart) {
     const player = {
         position: vec2.create(),
         velocity: vec2.create(),
+        heading: 0,
+        angularVelocity: 0,
         radius: playerRadius,
         armPhase: 0,
     };
@@ -1174,11 +1176,32 @@ function slideToStop(body, dt) {
 }
 function updateState(state, dt) {
     // Player
+    vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
     const playerSpeed = vec2.length(state.player.velocity);
     const armPhaseSpeed = 0.0035;
-    vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
     state.player.armPhase += playerSpeed * armPhaseSpeed;
     state.player.armPhase -= Math.floor(state.player.armPhase);
+    const minReorientSpeed = 0.01;
+    const headingTarget = (playerSpeed >= minReorientSpeed) ? Math.atan2(state.player.velocity[1], state.player.velocity[0]) : state.player.heading;
+    let headingError = headingTarget - state.player.heading;
+    if (headingError > Math.PI) {
+        headingError -= 2 * Math.PI;
+    }
+    else if (headingError < -Math.PI) {
+        headingError += 2 * Math.PI;
+    }
+    const angularVelocityError = -state.player.angularVelocity;
+    const headingSpringFreq = 12;
+    const headingAcceleration = headingSpringFreq * (headingSpringFreq * headingError + 2 * angularVelocityError);
+    const angularVelocityNext = state.player.angularVelocity + headingAcceleration * dt;
+    state.player.heading += (state.player.angularVelocity + angularVelocityNext) * (dt / 2);
+    while (state.player.heading < -Math.PI) {
+        state.player.heading += 2 * Math.PI;
+    }
+    while (state.player.heading > Math.PI) {
+        state.player.heading -= 2 * Math.PI;
+    }
+    state.player.angularVelocity = angularVelocityNext;
     // Other
     updateLootItems(state);
     updateCamera(state, dt);
@@ -1552,7 +1575,7 @@ function renderScene(renderer, state) {
     const maxArmSwingAngle = Math.min(0.5, 0.1 * speed);
     const personRenderState = {
         position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
-        heading: Math.atan2(state.player.velocity[1], state.player.velocity[0]),
+        heading: state.player.heading,
         headHeading: 0,
         headPitch: 0.125,
         eyeLHeading: 0,
