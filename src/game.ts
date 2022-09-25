@@ -229,6 +229,20 @@ type State = {
     level: Level;
 }
 
+type PersonRenderState = {
+    position: vec3;
+    heading: number;
+    headHeading: number;
+    headPitch: number;
+    eyeLHeading: number;
+    eyeRHeading: number;
+    eyeLPitch: number;
+    eyeRPitch: number;
+    eyeLOpen: boolean;
+    eyeROpen: boolean;
+    armAngle: number;
+}
+
 function loadResourcesThenRun() {
     loadImage('font.png').then((fontImage) => { main(fontImage as HTMLImageElement); });
 }
@@ -1898,7 +1912,7 @@ function clearLineOfSight(solid: BooleanGrid, pos0: vec2, pos1: vec2): boolean {
     return true;
 }
 
-function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld: mat4, position: vec3, heading: number) {
+function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld: mat4, person: PersonRenderState) {
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
     const eyeWhiteColor = vec3.fromValues(1, 1, 1);
@@ -1906,8 +1920,8 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
 
     const xfm = new MatrixStack();
 
-    xfm.translate(position);
-    xfm.rotateZ(heading);
+    xfm.translate(person.position);
+    xfm.rotateZ(person.heading);
     xfm.scaleXYZ(0.66667, 0.66667, 0.66667); // scale so body radius is 0.5
 
     // Body
@@ -1920,13 +1934,10 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
 
     // Head
 
-    const headPitch = 0.125;
-    const headHeading = 0;
-
     xfm.push(); // head
     xfm.translateZ(2); // up to neck
-    xfm.rotateZ(headHeading);
-    xfm.rotateY(headPitch);
+    xfm.rotateZ(person.headHeading);
+    xfm.rotateY(person.headPitch);
     xfm.translateZ(1); // up to center of head
     renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.push(); // nose
@@ -1941,24 +1952,32 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
 
     xfm.push(); // left eye
     xfm.translateY(0.3);
+    xfm.rotateZ(person.eyeLHeading);
+    xfm.rotateY(person.eyeLPitch);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.eyeLOpen ? eyeWhiteColor : skinColor);
     xfm.pop(); // eyeball
-    xfm.translateX(0.06);
-    xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    if (person.eyeLOpen) {
+        xfm.translateX(0.06);
+        xfm.scaleXYZ(0.2, 0.2, 0.2);
+        renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    }
     xfm.pop(); // left eye
 
     xfm.push(); // right eye
     xfm.translateY(-0.3);
+    xfm.rotateZ(person.eyeRHeading);
+    xfm.rotateY(person.eyeRPitch);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.eyeROpen ? eyeWhiteColor : skinColor);
     xfm.pop(); // eyeball
-    xfm.translateX(0.06);
-    xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    if (person.eyeROpen) {
+        xfm.translateX(0.06);
+        xfm.scaleXYZ(0.2, 0.2, 0.2);
+        renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    }
     xfm.pop(); // right eye
 
     xfm.pop(); // eyes
@@ -1972,11 +1991,9 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
 
     // Left arm
 
-    const armAngle = 0.25;
-
     xfm.push(); // left arm
     xfm.translateY(0.95);
-    xfm.rotateY(armAngle);
+    xfm.rotateY(person.armAngle);
 
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
@@ -2001,7 +2018,7 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
 
     xfm.push(); // right arm
     xfm.translateY(-0.95);
-    xfm.rotateY(-armAngle);
+    xfm.rotateY(-person.armAngle);
 
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
@@ -2058,15 +2075,21 @@ function renderScene(renderer: Renderer, state: State) {
         ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
     };
 
-    const playerPosition = vec3.fromValues(state.player.position[0], state.player.position[1], 0);
-    const playerHeading = Math.atan2(state.player.velocity[1], state.player.velocity[0]);
+    const personRenderState = {
+        position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
+        heading: Math.atan2(state.player.velocity[1], state.player.velocity[0]),
+        headHeading: 0,
+        headPitch: 0.125,
+        eyeLHeading: 0.5,
+        eyeRHeading: 0.5,
+        eyeLPitch: 0,
+        eyeRPitch: 0,
+        eyeLOpen: true,
+        eyeROpen: true,
+        armAngle: 0.25,
+    };
 
-    renderPerson(
-        renderer,
-        lighting,
-        matScreenFromWorld,
-        playerPosition,
-        playerHeading);
+    renderPerson(renderer, lighting, matScreenFromWorld, personRenderState);
 
     // Status displays
 

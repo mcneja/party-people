@@ -1422,14 +1422,14 @@ function clearLineOfSight(solid, pos0, pos1) {
     }
     return true;
 }
-function renderPerson(renderer, lighting, matScreenFromWorld, position, heading) {
+function renderPerson(renderer, lighting, matScreenFromWorld, person) {
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
     const eyeWhiteColor = vec3.fromValues(1, 1, 1);
     const eyeCenterColor = vec3.fromValues(0, 0, 0);
     const xfm = new MatrixStack();
-    xfm.translate(position);
-    xfm.rotateZ(heading);
+    xfm.translate(person.position);
+    xfm.rotateZ(person.heading);
     xfm.scaleXYZ(0.66667, 0.66667, 0.66667); // scale so body radius is 0.5
     // Body
     xfm.push(); // body
@@ -1438,12 +1438,10 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // body
     // Head
-    const headPitch = 0.125;
-    const headHeading = 0;
     xfm.push(); // head
     xfm.translateZ(2); // up to neck
-    xfm.rotateZ(headHeading);
-    xfm.rotateY(headPitch);
+    xfm.rotateZ(person.headHeading);
+    xfm.rotateY(person.headPitch);
     xfm.translateZ(1); // up to center of head
     renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.push(); // nose
@@ -1456,23 +1454,31 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.translateZ(0.2);
     xfm.push(); // left eye
     xfm.translateY(0.3);
+    xfm.rotateZ(person.eyeLHeading);
+    xfm.rotateY(person.eyeLPitch);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.eyeLOpen ? eyeWhiteColor : skinColor);
     xfm.pop(); // eyeball
-    xfm.translateX(0.06);
-    xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    if (person.eyeLOpen) {
+        xfm.translateX(0.06);
+        xfm.scaleXYZ(0.2, 0.2, 0.2);
+        renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    }
     xfm.pop(); // left eye
     xfm.push(); // right eye
     xfm.translateY(-0.3);
+    xfm.rotateZ(person.eyeRHeading);
+    xfm.rotateY(person.eyeRPitch);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.eyeROpen ? eyeWhiteColor : skinColor);
     xfm.pop(); // eyeball
-    xfm.translateX(0.06);
-    xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    if (person.eyeROpen) {
+        xfm.translateX(0.06);
+        xfm.scaleXYZ(0.2, 0.2, 0.2);
+        renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
+    }
     xfm.pop(); // right eye
     xfm.pop(); // eyes
     xfm.pop(); // head
@@ -1480,10 +1486,9 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.push(); // arms
     xfm.translateZ(2);
     // Left arm
-    const armAngle = 0.25;
     xfm.push(); // left arm
     xfm.translateY(0.95);
-    xfm.rotateY(armAngle);
+    xfm.rotateY(person.armAngle);
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
@@ -1502,7 +1507,7 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     // Right arm
     xfm.push(); // right arm
     xfm.translateY(-0.95);
-    xfm.rotateY(-armAngle);
+    xfm.rotateY(-person.armAngle);
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
@@ -1542,9 +1547,20 @@ function renderScene(renderer, state) {
         lightColor: vec3.fromValues(0.75, 0.675, 0.6),
         ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
     };
-    const playerPosition = vec3.fromValues(state.player.position[0], state.player.position[1], 0);
-    const playerHeading = Math.atan2(state.player.velocity[1], state.player.velocity[0]);
-    renderPerson(renderer, lighting, matScreenFromWorld, playerPosition, playerHeading);
+    const personRenderState = {
+        position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
+        heading: Math.atan2(state.player.velocity[1], state.player.velocity[0]),
+        headHeading: 0,
+        headPitch: 0.125,
+        eyeLHeading: 0.5,
+        eyeRHeading: 0.5,
+        eyeLPitch: 0,
+        eyeRPitch: 0,
+        eyeLOpen: true,
+        eyeROpen: true,
+        armAngle: 0.25,
+    };
+    renderPerson(renderer, lighting, matScreenFromWorld, personRenderState);
     // Status displays
     renderer.setDepthTestEnabled(false);
     renderLootCounter(state, renderer, screenSize);
