@@ -103,6 +103,8 @@ type Player = {
     headingVelocity: number;
     headHeading: number;
     headHeadingVelocity: number;
+    eyesOpen: boolean;
+    eyeStateDuration: number;
     radius: number;
     armPhase: number;
 };
@@ -778,6 +780,8 @@ function createPlayer(posStart: vec2): Player {
         headingVelocity: 0,
         headHeading: 0,
         headHeadingVelocity: 0,
+        eyesOpen: true,
+        eyeStateDuration: 0,
         radius: playerRadius,
         armPhase: 0,
     };
@@ -1669,6 +1673,31 @@ function updateState(state: State, dt: number) {
     state.player.headHeading = Math.max(-maxHeadHeading, Math.min(maxHeadHeading, state.player.headHeading));
     state.player.headHeadingVelocity = headHeadingVelocityNext;
 
+    // Update blink
+
+    const minBlinkDuration = 0.2;
+    const minLookDuration = 1.5;
+
+    const headHeadingVelocityWorld = state.player.headingVelocity + state.player.headHeadingVelocity;
+    if (state.player.eyesOpen) {
+        if (headHeadingVelocityWorld >= 2.0) {
+            state.player.eyesOpen = false;
+            state.player.eyeStateDuration = 0;
+        } else if (state.player.eyeStateDuration >= minLookDuration && Math.random() < 0.01) {
+            state.player.eyesOpen = false;
+            state.player.eyeStateDuration = 0;
+        } else {
+            state.player.eyeStateDuration += dt;
+        }
+    } else  {
+        if (state.player.eyeStateDuration >= minBlinkDuration && headHeadingVelocityWorld < 1.0) {
+            state.player.eyesOpen = true;
+            state.player.eyeStateDuration = 0;
+        } else {
+            state.player.eyeStateDuration += dt;
+        }
+    }
+
     // Other
 
     updateLootItems(state);
@@ -2144,8 +2173,8 @@ function renderScene(renderer: Renderer, state: State) {
         eyeRHeading: 0,
         eyeLPitch: 0,
         eyeRPitch: 0,
-        eyeLOpen: true,
-        eyeROpen: true,
+        eyeLOpen: state.player.eyesOpen,
+        eyeROpen: state.player.eyesOpen,
         armAngle: maxArmSwingAngle * Math.sin(state.player.armPhase * 2.0 * Math.PI),
     };
 

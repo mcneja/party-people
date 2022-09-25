@@ -499,6 +499,8 @@ function createPlayer(posStart) {
         headingVelocity: 0,
         headHeading: 0,
         headHeadingVelocity: 0,
+        eyesOpen: true,
+        eyeStateDuration: 0,
         radius: playerRadius,
         armPhase: 0,
     };
@@ -1222,6 +1224,32 @@ function updateState(state, dt) {
     state.player.headHeading += (state.player.headHeadingVelocity + headHeadingVelocityNext) * (dt / 2);
     state.player.headHeading = Math.max(-maxHeadHeading, Math.min(maxHeadHeading, state.player.headHeading));
     state.player.headHeadingVelocity = headHeadingVelocityNext;
+    // Update blink
+    const minBlinkDuration = 0.2;
+    const minLookDuration = 1.5;
+    const headHeadingVelocityWorld = state.player.headingVelocity + state.player.headHeadingVelocity;
+    if (state.player.eyesOpen) {
+        if (headHeadingVelocityWorld >= 2.0) {
+            state.player.eyesOpen = false;
+            state.player.eyeStateDuration = 0;
+        }
+        else if (state.player.eyeStateDuration >= minLookDuration && Math.random() < 0.01) {
+            state.player.eyesOpen = false;
+            state.player.eyeStateDuration = 0;
+        }
+        else {
+            state.player.eyeStateDuration += dt;
+        }
+    }
+    else {
+        if (state.player.eyeStateDuration >= minBlinkDuration && headHeadingVelocityWorld < 1.0) {
+            state.player.eyesOpen = true;
+            state.player.eyeStateDuration = 0;
+        }
+        else {
+            state.player.eyeStateDuration += dt;
+        }
+    }
     // Other
     updateLootItems(state);
     updateCamera(state, dt);
@@ -1602,8 +1630,8 @@ function renderScene(renderer, state) {
         eyeRHeading: 0,
         eyeLPitch: 0,
         eyeRPitch: 0,
-        eyeLOpen: true,
-        eyeROpen: true,
+        eyeLOpen: state.player.eyesOpen,
+        eyeROpen: state.player.eyesOpen,
         armAngle: maxArmSwingAngle * Math.sin(state.player.armPhase * 2.0 * Math.PI),
     };
     renderPerson(renderer, lighting, matScreenFromWorld, personRenderState);
