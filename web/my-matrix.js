@@ -473,8 +473,8 @@ class MatrixStack {
         for (let row = 0; row < 4; ++row) {
             let x = m[row + 0];
             let y = m[row + 4];
-            m[row + 0] = x * c - y * s;
-            m[row + 4] = y * c + x * s;
+            m[row + 0] = x * c + y * s;
+            m[row + 4] = y * c - x * s;
         }
     }
 }

@@ -73,7 +73,7 @@ function loadResourcesThenRun() {
 }
 function main(fontImage) {
     const canvas = document.querySelector("#canvas");
-    const gl = canvas.getContext("webgl2", { alpha: false, depth: false });
+    const gl = canvas.getContext("webgl2", { alpha: false, depth: true });
     if (gl == null) {
         alert("Unable to initialize WebGL2. Your browser or machine may not support it.");
         return;
@@ -458,6 +458,7 @@ function filterInPlace(array, condition) {
 }
 function createRenderer(gl, fontImage) {
     gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
     const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
     const renderer = {
         beginFrame: createBeginFrame(gl),
@@ -1405,11 +1406,12 @@ function clearLineOfSight(solid, pos0, pos1) {
     }
     return true;
 }
-function renderPerson(renderer, lighting, matScreenFromWorld, position) {
+function renderPerson(renderer, lighting, matScreenFromWorld, position, heading) {
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
     const xfm = new MatrixStack(matScreenFromWorld);
     xfm.translate(position);
+    xfm.rotateZ(heading);
     xfm.push();
     xfm.translate(vec3.fromValues(0, 0, 0.66667));
     xfm.scale(vec3.fromValues(0.5, 0.5, 0.66667));
@@ -1418,6 +1420,9 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position) {
     xfm.push();
     xfm.translate(vec3.fromValues(0, 0, 2));
     xfm.scale(vec3.fromValues(0.66667, 0.66667, 0.66667));
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    xfm.translate(vec3.fromValues(1, 0, 0));
+    xfm.scale(vec3.fromValues(0.5, 0.5, 0.5));
     renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
     xfm.pop();
 }
@@ -1442,36 +1447,9 @@ function renderScene(renderer, state) {
         lightColor: vec3.fromValues(0.75, 0.675, 0.6),
         ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
     };
-    renderPerson(renderer, lighting, matScreenFromWorld, vec3.fromValues(state.player.position[0], state.player.position[1], 0));
-    /*
-    const matWorldFromPlayer = mat4.create();
-    mat4.identity(matWorldFromPlayer);
-    mat4.translate(matWorldFromPlayer, vec3.fromValues(state.player.position[0], state.player.position[1], 0));
-
-    const matScreenFromPlayer = mat4.create();
-    mat4.multiply(matScreenFromPlayer, matScreenFromWorld, matWorldFromPlayer);
-
-    const matPlayerFromBody = mat4.create();
-    mat4.identity(matPlayerFromBody);
-    mat4.scale(matPlayerFromBody, vec3.fromValues(0.5, 0.5, 0.66667));
-    mat4.translate(matPlayerFromBody, vec3.fromValues(0, 0, 0.66667));
-
-    const bodyColor = vec3.fromValues(0.5, 0.8, 1);
-    const skinColor = vec3.fromValues(1, 0.8, 0.5);
-
-    const matScreenFromBody = mat4.create();
-    mat4.multiply(matScreenFromBody, matScreenFromPlayer, matPlayerFromBody);
-    renderer.renderGeom(renderer.geomCylinder, matScreenFromBody, lighting, bodyColor);
-
-    const matPlayerFromHead = mat4.create();
-    mat4.identity(matPlayerFromHead);
-    mat4.scale(matPlayerFromHead, vec3.fromValues(0.66667, 0.66667, 0.66667));
-    mat4.translate(matPlayerFromHead, vec3.fromValues(0, 0, 2));
-
-    const matScreenFromHead = mat4.create();
-    mat4.multiply(matScreenFromHead, matScreenFromPlayer, matPlayerFromHead);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromHead, lighting, skinColor);
-    */
+    const playerPosition = vec3.fromValues(state.player.position[0], state.player.position[1], 0);
+    const playerHeading = Math.atan2(state.player.velocity[1], state.player.velocity[0]);
+    renderPerson(renderer, lighting, matScreenFromWorld, playerPosition, playerHeading);
     // Status displays
     renderLootCounter(state, renderer, screenSize);
     // Text
@@ -1515,7 +1493,7 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
     const ySlope = 0.4; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
     const czZoom = ryZoom / ySlope;
-    const tiltAngle = 1.3;
+    const tiltAngle = 0.5; //1.3;
     mat4.identity(matScreenFromWorld);
     mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
     //    mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxZoom, 1 / ryZoom, 1));

@@ -230,7 +230,7 @@ function loadResourcesThenRun() {
 function main(fontImage: HTMLImageElement) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
-    const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
+    const gl = canvas.getContext("webgl2", { alpha: false, depth: true }) as WebGL2RenderingContext;
 
     if (gl == null) {
         alert("Unable to initialize WebGL2. Your browser or machine may not support it.");
@@ -705,6 +705,7 @@ function filterInPlace<T>(array: Array<T>, condition: (val: T, i: number, array:
 
 function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement): Renderer {
     gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
 
     const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
 
@@ -1874,13 +1875,14 @@ function clearLineOfSight(solid: BooleanGrid, pos0: vec2, pos1: vec2): boolean {
     return true;
 }
 
-function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld: mat4, position: vec3) {
+function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld: mat4, position: vec3, heading: number) {
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
 
     const xfm = new MatrixStack(matScreenFromWorld);
 
     xfm.translate(position);
+    xfm.rotateZ(heading);
 
     xfm.push();
     xfm.translate(vec3.fromValues(0, 0, 0.66667));
@@ -1890,6 +1892,9 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
     xfm.push();
     xfm.translate(vec3.fromValues(0, 0, 2));
     xfm.scale(vec3.fromValues(0.66667, 0.66667, 0.66667));
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    xfm.translate(vec3.fromValues(1, 0, 0));
+    xfm.scale(vec3.fromValues(0.5, 0.5, 0.5));
     renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
     xfm.pop();
 }
@@ -1925,11 +1930,15 @@ function renderScene(renderer: Renderer, state: State) {
         ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
     };
 
+    const playerPosition = vec3.fromValues(state.player.position[0], state.player.position[1], 0);
+    const playerHeading = Math.atan2(state.player.velocity[1], state.player.velocity[0]);
+
     renderPerson(
         renderer,
         lighting,
         matScreenFromWorld,
-        vec3.fromValues(state.player.position[0], state.player.position[1], 0));
+        playerPosition,
+        playerHeading);
 
     // Status displays
 
@@ -1980,7 +1989,7 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
 
     const ySlope = 0.4; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
     const czZoom = ryZoom / ySlope;
-    const tiltAngle = 1.3;
+    const tiltAngle = 0.5;//1.3;
 
     mat4.identity(matScreenFromWorld);
     mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
