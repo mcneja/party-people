@@ -1,5 +1,5 @@
 /*
-Little people
+Party People
 
 Need to get a 3D scene going, with some geometry and lighting
 Basic primitives are plane, sphere, cylinder; could use scaling
@@ -1181,7 +1181,7 @@ function updateState(state, dt) {
     const armPhaseSpeed = 0.0035;
     state.player.armPhase += playerSpeed * armPhaseSpeed;
     state.player.armPhase -= Math.floor(state.player.armPhase);
-    const minReorientSpeed = 0.01;
+    const minReorientSpeed = 1.0;
     const headingTarget = (playerSpeed >= minReorientSpeed) ? Math.atan2(state.player.velocity[1], state.player.velocity[0]) : state.player.heading;
     let headingError = headingTarget - state.player.heading;
     if (headingError > Math.PI) {
@@ -1191,7 +1191,7 @@ function updateState(state, dt) {
         headingError += 2 * Math.PI;
     }
     const angularVelocityError = -state.player.angularVelocity;
-    const headingSpringFreq = 12;
+    const headingSpringFreq = 10;
     const headingAcceleration = headingSpringFreq * (headingSpringFreq * headingError + 2 * angularVelocityError);
     const angularVelocityNext = state.player.angularVelocity + headingAcceleration * dt;
     state.player.heading += (state.player.angularVelocity + angularVelocityNext) * (dt / 2);
