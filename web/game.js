@@ -496,7 +496,7 @@ function createPlayer(posStart) {
         position: vec2.create(),
         velocity: vec2.create(),
         radius: playerRadius,
-        dead: false,
+        armPhase: 0,
     };
     vec2.copy(player.position, posStart);
     vec2.zero(player.velocity);
@@ -511,7 +511,6 @@ function initState(createColoredTrianglesRenderer) {
         showMap: false,
         mapZoom: 1,
         mapZoomVelocity: 0,
-        sphereAngle: 0,
         player: createPlayer(level.playerStartPos),
         playerBullets: [],
         turretBullets: [],
@@ -527,7 +526,6 @@ function resetState(state, createColoredTrianglesRenderer) {
     state.turretBullets = [];
     state.camera = createCamera(level.playerStartPos);
     state.level = level;
-    state.sphereAngle = 0;
 }
 function createBeginFrame(gl) {
     return (screenSize) => {
@@ -1175,9 +1173,12 @@ function slideToStop(body, dt) {
     vec2.scale(body.velocity, body.velocity, r);
 }
 function updateState(state, dt) {
-    state.sphereAngle += dt * 0.5;
     // Player
+    const playerSpeed = vec2.length(state.player.velocity);
+    const armPhaseSpeed = 0.0035;
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
+    state.player.armPhase += playerSpeed * armPhaseSpeed;
+    state.player.armPhase -= Math.floor(state.player.armPhase);
     // Other
     updateLootItems(state);
     updateCamera(state, dt);
@@ -1547,18 +1548,20 @@ function renderScene(renderer, state) {
         lightColor: vec3.fromValues(0.75, 0.675, 0.6),
         ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
     };
+    const speed = vec2.length(state.player.velocity);
+    const maxArmSwingAngle = Math.min(0.5, 0.1 * speed);
     const personRenderState = {
         position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
         heading: Math.atan2(state.player.velocity[1], state.player.velocity[0]),
         headHeading: 0,
         headPitch: 0.125,
-        eyeLHeading: 0.5,
-        eyeRHeading: 0.5,
+        eyeLHeading: 0,
+        eyeRHeading: 0,
         eyeLPitch: 0,
         eyeRPitch: 0,
         eyeLOpen: true,
         eyeROpen: true,
-        armAngle: 0.25,
+        armAngle: maxArmSwingAngle * Math.sin(state.player.armPhase * 2.0 * Math.PI),
     };
     renderPerson(renderer, lighting, matScreenFromWorld, personRenderState);
     // Status displays
