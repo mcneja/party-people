@@ -942,11 +942,12 @@ function createLitGeomRenderer(gl) {
         in vec3 vNormal;
 
         uniform mat4 uProjectionMatrix;
+        uniform mat4 uLightNormalMatrix;
 
         out highp vec3 fNormal;
 
         void main() {
-            fNormal = vNormal;
+            fNormal = vec3(uLightNormalMatrix * vec4(vNormal.xyz, 0));
             gl_Position = uProjectionMatrix * vec4(vPosition.xyz, 1);
         }
     `;
@@ -972,16 +973,23 @@ function createLitGeomRenderer(gl) {
     };
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
     const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const uLightNormalMatrixLoc = gl.getUniformLocation(program, 'uLightNormalMatrix');
     const uColorDiffuseLoc = gl.getUniformLocation(program, 'uColorDiffuse');
     const uColorAmbientLoc = gl.getUniformLocation(program, 'uColorAmbient');
     const uLightDirectionLoc = gl.getUniformLocation(program, 'uLightDirection');
-    return (compiledGeom, matScreenFromLocal, lighting, color) => {
-        const colorDiffuse = vec3.create();
+    const colorDiffuse = vec3.create();
+    const colorAmbient = vec3.create();
+    const matWorldFromLocalNormal = mat4.create();
+    const matScreenFromLocal = mat4.create();
+    return (compiledGeom, matScreenFromWorld, matWorldFromLocal, lighting, color) => {
         vec3.multiply(colorDiffuse, lighting.lightColor, color);
-        const colorAmbient = vec3.create();
         vec3.multiply(colorAmbient, lighting.ambientColor, color);
+        mat4.invert(matWorldFromLocalNormal, matWorldFromLocal);
+        mat4.transpose(matWorldFromLocalNormal, matWorldFromLocalNormal);
+        mat4.multiply(matScreenFromLocal, matScreenFromWorld, matWorldFromLocal);
         gl.useProgram(program);
         gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromLocal);
+        gl.uniformMatrix4fv(uLightNormalMatrixLoc, false, matWorldFromLocalNormal);
         gl.uniform3fv(uColorDiffuseLoc, colorDiffuse);
         gl.uniform3fv(uColorAmbientLoc, colorAmbient);
         gl.uniform3fv(uLightDirectionLoc, lighting.lightDirection);
@@ -1419,7 +1427,7 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
     const eyeWhiteColor = vec3.fromValues(1, 1, 1);
     const eyeCenterColor = vec3.fromValues(0, 0, 0);
-    const xfm = new MatrixStack(matScreenFromWorld);
+    const xfm = new MatrixStack();
     xfm.translate(position);
     xfm.rotateZ(heading);
     xfm.scaleXYZ(0.66667, 0.66667, 0.66667); // scale so body radius is 0.5
@@ -1427,7 +1435,7 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.push(); // body
     xfm.translateZ(1);
     xfm.scaleXYZ(0.75, 0.75, 1);
-    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // body
     // Head
     const headPitch = 0.125;
@@ -1437,11 +1445,11 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.rotateZ(headHeading);
     xfm.rotateY(headPitch);
     xfm.translateZ(1); // up to center of head
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.push(); // nose
     xfm.translateX(1);
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.pop(); // nose
     xfm.push(); // eyes
     xfm.translateX(0.8);
@@ -1450,21 +1458,21 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.translateY(0.3);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
     xfm.pop(); // eyeball
     xfm.translateX(0.06);
     xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeCenterColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
     xfm.pop(); // left eye
     xfm.push(); // right eye
     xfm.translateY(-0.3);
     xfm.push(); // eyeball
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeWhiteColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeWhiteColor);
     xfm.pop(); // eyeball
     xfm.translateX(0.06);
     xfm.scaleXYZ(0.2, 0.2, 0.2);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, eyeCenterColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, eyeCenterColor);
     xfm.pop(); // right eye
     xfm.pop(); // eyes
     xfm.pop(); // head
@@ -1479,16 +1487,16 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
-    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // sleeve
     xfm.push(); // shoulder
     xfm.scaleXYZ(0.35, 0.35, 0.35);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // shoulder
     xfm.push(); // hand
     xfm.translateZ(-1.25);
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.pop(); // hand
     xfm.pop(); // left arm
     // Right arm
@@ -1498,16 +1506,16 @@ function renderPerson(renderer, lighting, matScreenFromWorld, position, heading)
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
-    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // sleeve
     xfm.push(); // shoulder
     xfm.scaleXYZ(0.35, 0.35, 0.35);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, bodyColor);
     xfm.pop(); // shoulder
     xfm.push(); // hand
     xfm.translateZ(-1.25);
     xfm.scaleXYZ(0.25, 0.25, 0.25);
-    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, skinColor);
     xfm.pop(); // hand
     xfm.pop(); // right arm
     xfm.pop(); // arms
