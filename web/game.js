@@ -8,7 +8,7 @@ Then movement and camera, and game controller input
 Will need to expand the vector module
 
 */
-import { vec2, vec3, mat4 } from './my-matrix.js';
+import { vec2, vec3, mat4, MatrixStack } from './my-matrix.js';
 window.onload = loadResourcesThenRun;
 var TerrainType;
 (function (TerrainType) {
@@ -1405,6 +1405,22 @@ function clearLineOfSight(solid, pos0, pos1) {
     }
     return true;
 }
+function renderPerson(renderer, lighting, matScreenFromWorld, position) {
+    const bodyColor = vec3.fromValues(0.5, 0.8, 1);
+    const skinColor = vec3.fromValues(1, 0.8, 0.5);
+    const xfm = new MatrixStack(matScreenFromWorld);
+    xfm.translate(position);
+    xfm.push();
+    xfm.translate(vec3.fromValues(0, 0, 0.66667));
+    xfm.scale(vec3.fromValues(0.5, 0.5, 0.66667));
+    renderer.renderGeom(renderer.geomCylinder, xfm.top(), lighting, bodyColor);
+    xfm.pop();
+    xfm.push();
+    xfm.translate(vec3.fromValues(0, 0, 2));
+    xfm.scale(vec3.fromValues(0.66667, 0.66667, 0.66667));
+    renderer.renderGeom(renderer.geomSphere, xfm.top(), lighting, skinColor);
+    xfm.pop();
+}
 function renderScene(renderer, state) {
     const screenSize = vec2.create();
     renderer.beginFrame(screenSize);
@@ -1421,32 +1437,41 @@ function renderScene(renderer, state) {
     renderPlayer(state, renderer, matScreenFromWorld);
     const lightDirectionWorld = vec3.fromValues(2, -1, 3);
     vec3.scale(lightDirectionWorld, lightDirectionWorld, 1 / vec3.length(lightDirectionWorld));
+    const lighting = {
+        lightDirection: lightDirectionWorld,
+        lightColor: vec3.fromValues(0.75, 0.675, 0.6),
+        ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
+    };
+    renderPerson(renderer, lighting, matScreenFromWorld, vec3.fromValues(state.player.position[0], state.player.position[1], 0));
+    /*
     const matWorldFromPlayer = mat4.create();
     mat4.identity(matWorldFromPlayer);
     mat4.translate(matWorldFromPlayer, vec3.fromValues(state.player.position[0], state.player.position[1], 0));
+
     const matScreenFromPlayer = mat4.create();
     mat4.multiply(matScreenFromPlayer, matScreenFromWorld, matWorldFromPlayer);
+
     const matPlayerFromBody = mat4.create();
     mat4.identity(matPlayerFromBody);
     mat4.scale(matPlayerFromBody, vec3.fromValues(0.5, 0.5, 0.66667));
     mat4.translate(matPlayerFromBody, vec3.fromValues(0, 0, 0.66667));
+
     const bodyColor = vec3.fromValues(0.5, 0.8, 1);
-    const lighting = {
-        lightDirection: lightDirectionWorld,
-        lightColor: vec3.fromValues(1, 0.9, 0.8),
-        ambientColor: vec3.fromValues(0.1, 0.125, 0.25),
-    };
+    const skinColor = vec3.fromValues(1, 0.8, 0.5);
+
     const matScreenFromBody = mat4.create();
     mat4.multiply(matScreenFromBody, matScreenFromPlayer, matPlayerFromBody);
     renderer.renderGeom(renderer.geomCylinder, matScreenFromBody, lighting, bodyColor);
+
     const matPlayerFromHead = mat4.create();
     mat4.identity(matPlayerFromHead);
     mat4.scale(matPlayerFromHead, vec3.fromValues(0.66667, 0.66667, 0.66667));
     mat4.translate(matPlayerFromHead, vec3.fromValues(0, 0, 2));
-    const skinColor = vec3.fromValues(1, 0.8, 0.5);
+
     const matScreenFromHead = mat4.create();
     mat4.multiply(matScreenFromHead, matScreenFromPlayer, matPlayerFromHead);
     renderer.renderGeom(renderer.geomSphere, matScreenFromHead, lighting, skinColor);
+    */
     // Status displays
     renderLootCounter(state, renderer, screenSize);
     // Text

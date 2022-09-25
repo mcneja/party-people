@@ -1,4 +1,4 @@
-export { vec2, vec3, mat4 };
+export { vec2, vec3, mat4, MatrixStack };
 
 type vec2 = [number, number];
 type vec3 = [number, number, number];
@@ -221,6 +221,15 @@ namespace mat4 {
         ];
     }
 
+    export function clone(a: mat4): mat4 {
+        return [
+            a[0], a[1], a[2], a[3],
+            a[4], a[5], a[6], a[7],
+            a[8], a[9], a[10], a[11],
+            a[12], a[13], a[14], a[15],
+        ];
+    }
+
     export function copy(result: mat4, a: mat4) {
         result[0] = a[0];
         result[1] = a[1];
@@ -423,4 +432,76 @@ namespace mat4 {
             }
         }
     }
+}
+
+class MatrixStack {
+    constructor(base: mat4) {
+        this.transforms = [mat4.clone(base)];
+    }
+
+    top(): mat4 {
+        return this.transforms[this.transforms.length - 1];
+    }
+
+    push() {
+        this.transforms.push(mat4.clone(this.top()));
+    }
+
+    pop() {
+        this.transforms.pop();
+    }
+
+    scale(s: vec3) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 0] *= s[0];
+            m[row + 4] *= s[1];
+            m[row + 8] *= s[2];
+        }
+    }
+
+    translate(t: vec3) {
+        const m = this.top();
+        for (let row = 0; row < 4; ++row) {
+            m[row + 12] += m[row + 0] * t[0] + m[row + 4] * t[1] + m[row + 8] * t[2];
+        }
+    }
+
+    rotateX(angle: number) {
+        const m = this.top();
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        for (let row = 0; row < 4; ++row) {
+            let y = m[row + 4];
+            let z = m[row + 8];
+            m[row + 4] = y * c + z * s;
+            m[row + 8] = z * c - y * s;
+        }
+    }
+
+    rotateY(angle: number) {
+        const m = this.top();
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        for (let row = 0; row < 4; ++row) {
+            let x = m[row + 0];
+            let z = m[row + 8];
+            m[row + 0] = x * c - z * s;
+            m[row + 8] = z * c + x * s;
+        }
+    }
+
+    rotateZ(angle: number) {
+        const m = this.top();
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        for (let row = 0; row < 4; ++row) {
+            let x = m[row + 0];
+            let y = m[row + 4];
+            m[row + 0] = x * c - y * s;
+            m[row + 4] = y * c + x * s;
+        }
+    }
+
+    transforms: Array<mat4>;
 }
