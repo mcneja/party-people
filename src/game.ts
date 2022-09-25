@@ -1310,14 +1310,14 @@ function createLitGeomRenderer(gl: WebGL2RenderingContext): RenderLitColored {
         in vec3 vPosition;
         in vec3 vNormal;
 
-        uniform mat4 uProjectionMatrix;
-        uniform mat4 uLightNormalMatrix;
+        uniform mat4 uMatClipFromLocal;
+        uniform mat4 uMatLightFromLocal;
 
         out highp vec3 fNormal;
 
         void main() {
-            fNormal = vec3(uLightNormalMatrix * vec4(vNormal.xyz, 0));
-            gl_Position = uProjectionMatrix * vec4(vPosition.xyz, 1);
+            fNormal = vec3(uMatLightFromLocal * vec4(vNormal.xyz, 0));
+            gl_Position = uMatClipFromLocal * vec4(vPosition.xyz, 1);
         }
     `;
 
@@ -1345,11 +1345,11 @@ function createLitGeomRenderer(gl: WebGL2RenderingContext): RenderLitColored {
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
-    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
-    const uLightNormalMatrixLoc = gl.getUniformLocation(program, 'uLightNormalMatrix');
-    const uColorDiffuseLoc = gl.getUniformLocation(program, 'uColorDiffuse');
-    const uColorAmbientLoc = gl.getUniformLocation(program, 'uColorAmbient');
-    const uLightDirectionLoc = gl.getUniformLocation(program, 'uLightDirection');
+    const locMatClipFromLocal = gl.getUniformLocation(program, 'uMatClipFromLocal');
+    const locMatLightFromLocal = gl.getUniformLocation(program, 'uMatLightFromLocal');
+    const locColorDiffuse = gl.getUniformLocation(program, 'uColorDiffuse');
+    const locColorAmbient = gl.getUniformLocation(program, 'uColorAmbient');
+    const locLightDirection = gl.getUniformLocation(program, 'uLightDirection');
 
     const colorDiffuse = vec3.create();
     const colorAmbient = vec3.create();
@@ -1363,11 +1363,11 @@ function createLitGeomRenderer(gl: WebGL2RenderingContext): RenderLitColored {
         mat4.transpose(matWorldFromLocalNormal, matWorldFromLocalNormal);
         mat4.multiply(matScreenFromLocal, matScreenFromWorld, matWorldFromLocal);
         gl.useProgram(program);
-        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromLocal);
-        gl.uniformMatrix4fv(uLightNormalMatrixLoc, false, matWorldFromLocalNormal);
-        gl.uniform3fv(uColorDiffuseLoc, colorDiffuse);
-        gl.uniform3fv(uColorAmbientLoc, colorAmbient);
-        gl.uniform3fv(uLightDirectionLoc, lighting.lightDirection);
+        gl.uniformMatrix4fv(locMatClipFromLocal, false, matScreenFromLocal);
+        gl.uniformMatrix4fv(locMatLightFromLocal, false, matWorldFromLocalNormal);
+        gl.uniform3fv(locColorDiffuse, colorDiffuse);
+        gl.uniform3fv(locColorAmbient, colorAmbient);
+        gl.uniform3fv(locLightDirection, lighting.lightDirection);
         gl.bindVertexArray(compiledGeom.vao);
         gl.drawElements(gl.TRIANGLES, compiledGeom.numIndices, gl.UNSIGNED_SHORT, 0);
         gl.bindVertexArray(null);
@@ -1528,13 +1528,13 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
         in vec2 vPosition;
         in vec4 vColor;
 
-        uniform mat4 uProjectionMatrix;
+        uniform mat4 uMatClipFromLocal;
 
         out highp vec4 fColor;
 
         void main() {
             fColor = vColor;
-            gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+            gl_Position = uMatClipFromLocal * vec4(vPosition.xy, 0, 1);
         }
     `;
 
@@ -1553,7 +1553,7 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
-    const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const locMatClipFromLocal = gl.getUniformLocation(program, 'uMatClipFromLocal');
 
     const vertexBuffer = gl.createBuffer();
 
@@ -1577,7 +1577,7 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
 
         return matScreenFromWorld => {
             gl.useProgram(program);
-            gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
+            gl.uniformMatrix4fv(locMatClipFromLocal, false, matScreenFromWorld);
             gl.bindVertexArray(vao);
             gl.drawArrays(gl.TRIANGLES, 0, numVerts);
             gl.bindVertexArray(null);
