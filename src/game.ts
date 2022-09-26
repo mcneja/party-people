@@ -227,6 +227,7 @@ type State = {
     tLast: number | undefined;
     paused: boolean;
     showMap: boolean;
+    posMouse: vec2;
     player: Player;
     playerBullets: Array<Bullet>;
     turretBullets: Array<Bullet>;
@@ -344,12 +345,8 @@ const loadImage = (src: string) =>
     });
 
 function updatePosition(state: State, e: MouseEvent) {
-    const heading = state.showMap ? Math.PI/2 : state.camera.heading;
-    const viewUpDir = vec2.fromValues(Math.cos(heading), Math.sin(heading));
-    const viewRightDir = vec2.fromValues(viewUpDir[1], -viewUpDir[0]);
-    const movement = vec2.fromValues(e.movementX * viewRightDir[0] - e.movementY * viewUpDir[0], e.movementX * viewRightDir[1] - e.movementY * viewUpDir[1]);
-    const scale = 0.05;
-    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
+    state.posMouse[0] += e.movementX;
+    state.posMouse[1] -= e.movementY;
 }
 
 function tryShootBullet(state: State) {
@@ -812,6 +809,7 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         tLast: undefined,
         paused: true,
         showMap: false,
+        posMouse: vec2.fromValues(0, 0),
         player: createPlayer(level.playerStartPos),
         playerBullets: [],
         turretBullets: [],
@@ -1628,6 +1626,13 @@ function slideToStop(body: Disc, dt: number) {
 function updateState(state: State, dt: number) {
 
     // Player
+
+    const heading = state.showMap ? Math.PI/2 : state.camera.heading;
+    const viewUpDir = vec2.fromValues(Math.cos(heading), Math.sin(heading));
+    const viewRightDir = vec2.fromValues(viewUpDir[1], -viewUpDir[0]);
+    const speedScale = 0.05;
+    vec2.scale(state.player.velocity, viewUpDir, state.posMouse[1] * speedScale);
+    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, viewRightDir, state.posMouse[0] * speedScale);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
