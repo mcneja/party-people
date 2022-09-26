@@ -345,8 +345,9 @@ const loadImage = (src: string) =>
     });
 
 function updatePosition(state: State, e: MouseEvent) {
-    state.posMouse[0] += e.movementX;
-    state.posMouse[1] -= e.movementY;
+    const speedScale = 0.05;
+    state.posMouse[0] += e.movementX * speedScale;
+    state.posMouse[1] -= e.movementY * speedScale;
 }
 
 function tryShootBullet(state: State) {
@@ -1630,9 +1631,8 @@ function updateState(state: State, dt: number) {
     const heading = state.showMap ? Math.PI/2 : state.camera.heading;
     const viewUpDir = vec2.fromValues(Math.cos(heading), Math.sin(heading));
     const viewRightDir = vec2.fromValues(viewUpDir[1], -viewUpDir[0]);
-    const speedScale = 0.05;
-    vec2.scale(state.player.velocity, viewUpDir, state.posMouse[1] * speedScale);
-    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, viewRightDir, state.posMouse[0] * speedScale);
+    vec2.scale(state.player.velocity, viewUpDir, state.posMouse[1]);
+    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, viewRightDir, state.posMouse[0]);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
@@ -1745,6 +1745,11 @@ function updateState(state: State, dt: number) {
     
         fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.solid);
     }
+
+    // Translate the player's velocity back into the mouse speed
+
+    state.posMouse[0] = vec2.dot(viewRightDir, state.player.velocity);
+    state.posMouse[1] = vec2.dot(viewUpDir, state.player.velocity);
 }
 
 function updateCamera(state: State, dt: number) {
