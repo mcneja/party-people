@@ -1768,7 +1768,7 @@ function updateCamera(state: State, dt: number) {
     // Rotate to follow
 
     const cameraDir = vec2.fromValues(Math.cos(state.camera.heading), Math.sin(state.camera.heading));
-    const torque = 0.1 * vec2.perpDot(cameraDir, state.camera.velocity);
+    const torque = 0.079 * vec2.perpDot(cameraDir, state.camera.velocity);
 
     state.camera.heading += torque * dt;
 }
