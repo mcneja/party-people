@@ -79,6 +79,10 @@ var vec2;
         return a[0] * b[0] + a[1] * b[1];
     }
     vec2.dot = dot;
+    function perpDot(a, b) {
+        return a[0] * b[1] - a[1] * b[0];
+    }
+    vec2.perpDot = perpDot;
     function lerp(result, a, b, t) {
         result[0] = a[0] + t * (b[0] - a[0]);
         result[1] = a[1] + t * (b[1] - a[1]);
@@ -349,6 +353,27 @@ var mat4;
         m[14] = m14 * c - m13 * s;
     }
     mat4.rotateX = rotateX;
+    function rotateZ(m, angle) {
+        const s = Math.sin(angle);
+        const c = Math.cos(angle);
+        const m0 = m[0];
+        const m1 = m[1];
+        const m4 = m[4];
+        const m5 = m[5];
+        const m8 = m[8];
+        const m9 = m[9];
+        const m12 = m[12];
+        const m13 = m[13];
+        m[0] = m0 * c - m1 * s;
+        m[1] = m0 * s + m1 * c;
+        m[4] = m4 * c - m5 * s;
+        m[5] = m4 * s + m5 * c;
+        m[8] = m8 * c - m9 * s;
+        m[9] = m8 * s + m9 * c;
+        m[12] = m12 * c - m13 * s;
+        m[13] = m12 * s + m13 * c;
+    }
+    mat4.rotateZ = rotateZ;
     function frustum(m, left, right, bottom, top, near, far) {
         const x = (2 * near) / (right - left);
         const y = (2 * near) / (top - bottom);

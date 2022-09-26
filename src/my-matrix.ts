@@ -87,6 +87,10 @@ namespace vec2 {
         return a[0] * b[0] + a[1] * b[1];
     }
 
+    export function perpDot(a: vec2, b: vec2): number {
+        return a[0] * b[1] - a[1] * b[0];
+    }
+
     export function lerp(result: vec2, a: vec2, b: vec2, t: number) {
         result[0] = a[0] + t * (b[0] - a[0]);
         result[1] = a[1] + t * (b[1] - a[1]);
@@ -361,6 +365,29 @@ namespace mat4 {
         m[10] = m10 * c - m9 * s;
         m[13] = m13 * c + m14 * s;
         m[14] = m14 * c - m13 * s;
+    }
+
+    export function rotateZ(m: mat4, angle: number) {
+        const s = Math.sin(angle);
+        const c = Math.cos(angle);
+
+        const m0 = m[0];
+        const m1 = m[1];
+        const m4 = m[4];
+        const m5 = m[5];
+        const m8 = m[8];
+        const m9 = m[9];
+        const m12 = m[12];
+        const m13 = m[13];
+
+        m[0] = m0 * c - m1 * s;
+        m[1] = m0 * s + m1 * c;
+        m[4] = m4 * c - m5 * s;
+        m[5] = m4 * s + m5 * c;
+        m[8] = m8 * c - m9 * s;
+        m[9] = m8 * s + m9 * c;
+        m[12] = m12 * c - m13 * s;
+        m[13] = m12 * s + m13 * c;
     }
 
     export function frustum(m: mat4, left: number, right: number, bottom: number, top: number, near: number, far: number) {

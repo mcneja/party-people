@@ -123,6 +123,7 @@ type Bullet = {
 type Camera = {
     position: vec2;
     velocity: vec2;
+    heading: number;
 }
 
 type Disc = {
@@ -226,8 +227,6 @@ type State = {
     tLast: number | undefined;
     paused: boolean;
     showMap: boolean;
-    mapZoom: number;
-    mapZoomVelocity: number;
     player: Player;
     playerBullets: Array<Bullet>;
     turretBullets: Array<Bullet>;
@@ -285,8 +284,6 @@ function main(fontImage: HTMLImageElement) {
             e.preventDefault();
             state.showMap = !state.showMap;
             if (state.paused) {
-                state.mapZoom = state.showMap ? 0 : 1;
-                state.mapZoomVelocity = 0;
                 requestUpdateAndRender();
             }
         }
@@ -347,7 +344,10 @@ const loadImage = (src: string) =>
     });
 
 function updatePosition(state: State, e: MouseEvent) {
-    const movement = vec2.fromValues(e.movementX, -e.movementY);
+    const heading = state.showMap ? Math.PI/2 : state.camera.heading;
+    const viewUpDir = vec2.fromValues(Math.cos(heading), Math.sin(heading));
+    const viewRightDir = vec2.fromValues(viewUpDir[1], -viewUpDir[0]);
+    const movement = vec2.fromValues(e.movementX * viewRightDir[0] - e.movementY * viewUpDir[0], e.movementX * viewRightDir[1] - e.movementY * viewUpDir[1]);
     const scale = 0.05;
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
@@ -766,6 +766,7 @@ function createCamera(posPlayer: vec2): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        heading: Math.PI / 2,
     };
 
     vec2.copy(camera.position, posPlayer);
@@ -811,8 +812,6 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         tLast: undefined,
         paused: true,
         showMap: false,
-        mapZoom: 1,
-        mapZoomVelocity: 0,
         player: createPlayer(level.playerStartPos),
         playerBullets: [],
         turretBullets: [],
@@ -1745,15 +1744,6 @@ function updateState(state: State, dt: number) {
 
 function updateCamera(state: State, dt: number) {
 
-    // Animate map zoom
-
-    const mapZoomTarget = state.showMap ? 0 : 1;
-    const kSpringMapZoom = 12;
-    const mapZoomAccel = ((mapZoomTarget - state.mapZoom) * kSpringMapZoom - 2 * state.mapZoomVelocity) * kSpringMapZoom;
-    const mapZoomVelNew = state.mapZoomVelocity + mapZoomAccel * dt;
-    state.mapZoom += (state.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
-    state.mapZoomVelocity = mapZoomVelNew;
-
     // Update player follow
 
     const posError = vec2.create();
@@ -1774,6 +1764,13 @@ function updateCamera(state: State, dt: number) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
+
+    // Rotate to follow
+
+    const cameraDir = vec2.fromValues(Math.cos(state.camera.heading), Math.sin(state.camera.heading));
+    const torque = 0.1 * vec2.perpDot(cameraDir, state.camera.velocity);
+
+    state.camera.heading += torque * dt;
 }
 
 function fixupDiscPair(disc0: Disc, disc1: Disc) {
@@ -2199,49 +2196,50 @@ function renderScene(renderer: Renderer, state: State) {
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
-    const mapSizeX = state.level.solid.sizeX + 2;
-    const mapSizeY = state.level.solid.sizeY + 2;
-
-    let rxMap: number, ryMap: number;
-    if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
-        // horizontal is limiting dimension
-        rxMap = mapSizeX / 2;
-        ryMap = rxMap * screenSize[1] / screenSize[0];
+    if (state.showMap) {
+        const mapSizeX = state.level.solid.sizeX + 2;
+        const mapSizeY = state.level.solid.sizeY + 2;
+    
+        let rxMap: number, ryMap: number;
+        if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
+            // horizontal is limiting dimension
+            rxMap = mapSizeX / 2;
+            ryMap = rxMap * screenSize[1] / screenSize[0];
+        } else {
+            // vertical is limiting dimension
+            ryMap = mapSizeY / 2;
+            rxMap = ryMap * screenSize[0] / screenSize[1];
+        }
+        const cxMap = state.level.solid.sizeX / 2;
+        const cyMap = state.level.solid.sizeY / 2;
+    
+        mat4.identity(matScreenFromWorld);
+        mat4.translate(matScreenFromWorld, vec3.fromValues(-cxMap, -cyMap, 0));
+        mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxMap, 1 / ryMap, -0.1));
     } else {
-        // vertical is limiting dimension
-        ryMap = mapSizeY / 2;
-        rxMap = ryMap * screenSize[0] / screenSize[1];
+        const cxGame = state.camera.position[0];
+        const cyGame = state.camera.position[1];
+        const rGame = 6;
+        let rxGame: number, ryGame: number;
+        if (screenSize[0] < screenSize[1]) {
+            rxGame = rGame;
+            ryGame = rGame * screenSize[1] / screenSize[0];
+        } else {
+            ryGame = rGame;
+            rxGame = rGame * screenSize[0] / screenSize[1];
+        }
+
+        const ySlope = 0.4; // ryGame / rzGame --> rzGame = ryGame / ySlope
+        const tiltAngle = 1.0;//1.3;
+        const czGame = ryGame / ySlope;
+
+        mat4.identity(matScreenFromWorld);
+        mat4.translate(matScreenFromWorld, vec3.fromValues(-cxGame, -cyGame, 0));
+        mat4.rotateZ(matScreenFromWorld, Math.PI / 2 - state.camera.heading);
+        mat4.rotateX(matScreenFromWorld, tiltAngle);
+        mat4.translate(matScreenFromWorld, vec3.fromValues(0, 0, -czGame));
+        mat4.frustum(matScreenFromWorld, -rxGame / 2, rxGame / 2, -ryGame / 2, ryGame / 2, czGame / 2, czGame * 4);
     }
-    const cxMap = state.level.solid.sizeX / 2;
-    const cyMap = state.level.solid.sizeY / 2;
-
-    const cxGame = state.camera.position[0];
-    const cyGame = state.camera.position[1];
-    const rGame = 6;
-    let rxGame: number, ryGame: number;
-    if (screenSize[0] < screenSize[1]) {
-        rxGame = rGame;
-        ryGame = rGame * screenSize[1] / screenSize[0];
-    } else {
-        ryGame = rGame;
-        rxGame = rGame * screenSize[0] / screenSize[1];
-    }
-
-    const rxZoom = lerp(rxMap, rxGame, state.mapZoom);
-    const ryZoom = lerp(ryMap, ryGame, state.mapZoom);
-    const cxZoom = lerp(cxMap, cxGame, state.mapZoom);
-    const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
-
-    const ySlope = 0.4; // ryZoom / rzZoom --> rzZoom = ryZoom / ySlope
-    const czZoom = ryZoom / ySlope;
-    const tiltAngle = 1.0;//1.3;
-
-    mat4.identity(matScreenFromWorld);
-    mat4.translate(matScreenFromWorld, vec3.fromValues(-cxZoom, -cyZoom, 0));
-//    mat4.scale(matScreenFromWorld, vec3.fromValues(1 / rxZoom, 1 / ryZoom, 1));
-    mat4.rotateX(matScreenFromWorld, tiltAngle);
-    mat4.translate(matScreenFromWorld, vec3.fromValues(0, 0, -czZoom));
-    mat4.frustum(matScreenFromWorld, -rxZoom / 2, rxZoom / 2, -ryZoom / 2, ryZoom / 2, czZoom / 2, czZoom * 4);
 }
 
 function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {

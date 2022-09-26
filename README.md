@@ -6,7 +6,7 @@ Player/NPC formation movement tests
 
 - [x] Build some sort of matrix stack system for quickly rendering all the pieces of a person
 - [x] Correctly transform lighting into local space (do I need a full inverse transform? Can I maintain it in the matrix stack?)
-- [ ] Follow/orbit camera
+- [X] Follow/orbit camera
 - [ ] Get some level geometry going
 - [ ] Keyboard control (with mouse for looking?)
 - [ ] Gamepad control
