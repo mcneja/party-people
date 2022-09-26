@@ -233,6 +233,7 @@ type State = {
     turretBullets: Array<Bullet>;
     camera: Camera;
     level: Level;
+    lighting: Lighting;
 }
 
 type PersonRenderState = {
@@ -247,6 +248,7 @@ type PersonRenderState = {
     eyeLOpen: boolean;
     eyeROpen: boolean;
     armAngle: number;
+    clothingColor: vec3;
 }
 
 function loadResourcesThenRun() {
@@ -795,6 +797,15 @@ function createPlayer(posStart: vec2): Player {
 function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
     const level = createLevel();
 
+    const lightDirectionWorld = vec3.fromValues(2, -1, 3);
+    vec3.scale(lightDirectionWorld, lightDirectionWorld, 1 / vec3.length(lightDirectionWorld));
+
+    const lighting: Lighting = {
+        lightDirection: lightDirectionWorld,
+        lightColor: vec3.fromValues(0.75, 0.675, 0.6),
+        ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
+    };
+
     return {
         renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
         tLast: undefined,
@@ -807,6 +818,7 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         turretBullets: [],
         camera: createCamera(level.playerStartPos),
         level: level,
+        lighting: lighting,
     };
 }
 
@@ -1999,7 +2011,6 @@ function clearLineOfSight(solid: BooleanGrid, pos0: vec2, pos1: vec2): boolean {
 }
 
 function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld: mat4, person: PersonRenderState) {
-    const bodyColor = vec3.fromValues(0.5, 0.8, 1);
     const skinColor = vec3.fromValues(1, 0.8, 0.5);
     const eyeWhiteColor = vec3.fromValues(1, 1, 1);
     const eyeCenterColor = vec3.fromValues(0, 0, 0);
@@ -2015,7 +2026,7 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
     xfm.push(); // body
     xfm.translateZ(1);
     xfm.scaleXYZ(0.75, 0.75, 1);
-    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, person.clothingColor);
     xfm.pop(); // body
 
     // Head
@@ -2084,12 +2095,12 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
-    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, person.clothingColor);
     xfm.pop(); // sleeve
 
     xfm.push(); // shoulder
     xfm.scaleXYZ(0.35, 0.35, 0.35);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.clothingColor);
     xfm.pop(); // shoulder
 
     xfm.push(); // hand
@@ -2109,12 +2120,12 @@ function renderPerson(renderer: Renderer, lighting: Lighting, matScreenFromWorld
     xfm.push(); // sleeve
     xfm.translateZ(-0.5);
     xfm.scaleXYZ(0.2, 0.2, 0.5);
-    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomCylinder, matScreenFromWorld, xfm.top(), lighting, person.clothingColor);
     xfm.pop(); // sleeve
 
     xfm.push(); // shoulder
     xfm.scaleXYZ(0.35, 0.35, 0.35);
-    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, bodyColor);
+    renderer.renderGeom(renderer.geomSphere, matScreenFromWorld, xfm.top(), lighting, person.clothingColor);
     xfm.pop(); // shoulder
 
     xfm.push(); // hand
@@ -2152,19 +2163,10 @@ function renderScene(renderer: Renderer, state: State) {
 
     renderer.setDepthTestEnabled(true);
 
-    const lightDirectionWorld = vec3.fromValues(2, -1, 3);
-    vec3.scale(lightDirectionWorld, lightDirectionWorld, 1 / vec3.length(lightDirectionWorld));
-
-    const lighting = {
-        lightDirection: lightDirectionWorld,
-        lightColor: vec3.fromValues(0.75, 0.675, 0.6),
-        ambientColor: vec3.fromValues(0.2, 0.25, 0.5),
-    };
-
     const speed = vec2.length(state.player.velocity);
     const maxArmSwingAngle = Math.min(0.5, 0.1 * speed);
 
-    const personRenderState = {
+    const personRenderState: PersonRenderState = {
         position: vec3.fromValues(state.player.position[0], state.player.position[1], 0),
         heading: state.player.heading,
         headHeading: state.player.headHeading,
@@ -2176,9 +2178,10 @@ function renderScene(renderer: Renderer, state: State) {
         eyeLOpen: state.player.eyesOpen,
         eyeROpen: state.player.eyesOpen,
         armAngle: maxArmSwingAngle * Math.sin(state.player.armPhase * 2.0 * Math.PI),
+        clothingColor: vec3.fromValues(0.5, 0.8, 1),
     };
 
-    renderPerson(renderer, lighting, matScreenFromWorld, personRenderState);
+    renderPerson(renderer, state.lighting, matScreenFromWorld, personRenderState);
 
     // Status displays
 
